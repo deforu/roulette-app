@@ -890,6 +890,10 @@
     const exportButton = document.getElementById("exportButton");
     const csvFileInput = document.getElementById("csvFileInput");
 
+    const spinSound = new Audio("roulette-spin.wav");
+    spinSound.preload = "auto";
+    spinSound.loop = false;
+
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
     let filterSettings = new Map();
@@ -1421,6 +1425,23 @@
       ) || segments[segments.length - 1];
     }
 
+    function startSpinSound() {
+      spinSound.pause();
+      spinSound.currentTime = 0;
+
+      const playPromise = spinSound.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // 音声ファイルが未配置、またはブラウザに再生を拒否された場合も抽選は続行します。
+        });
+      }
+    }
+
+    function stopSpinSound() {
+      spinSound.pause();
+      spinSound.currentTime = 0;
+    }
+
     function spinRoulette() {
       if (spinning || candidates.length === 0 || currentResultIndex !== null) {
         return;
@@ -1433,6 +1454,7 @@
 
       spinning = true;
       resetResult();
+      startSpinSound();
       setMessage("抽選中です…");
       spinButton.disabled = true;
       applyButton.disabled = true;
@@ -1465,6 +1487,7 @@
         }
 
         currentRotation = targetRotation;
+        stopSpinSound();
         currentResultIndex = chosenIndex;
         resultValue.textContent = formatResult(candidates[chosenIndex]);
         decisionButton.disabled = false;
