@@ -147,7 +147,21 @@
 
 
     .roulette-mobile-summary {
+      display: grid;
+      grid-template-columns: minmax(40px, 1fr) auto minmax(40px, 1fr);
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 4px;
+    }
+
+    .roulette-mobile-summary .mobile-ratio-mode-button,
+    .roulette-mobile-summary .mobile-settings-button {
       display: none;
+    }
+
+    .roulette-mobile-summary .mobile-candidate-count {
+      grid-column: 2;
+      justify-self: center;
     }
 
     .mobile-candidate-count {
@@ -1067,14 +1081,19 @@
       }
 
       .roulette-mobile-summary {
-        display: grid;
         grid-template-columns: minmax(88px, 1fr) auto minmax(40px, 1fr);
-        align-items: center;
-        gap: 10px;
-        margin: 0 0 4px;
       }
 
-      .mobile-candidate-count {
+      .roulette-mobile-summary .mobile-ratio-mode-button {
+        display: inline-flex;
+      }
+
+      .roulette-mobile-summary .mobile-settings-button {
+        display: grid;
+      }
+
+      .roulette-mobile-summary .mobile-candidate-count {
+        grid-column: 2;
         justify-self: center;
       }
 
@@ -1149,7 +1168,7 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">追加入力加速・履歴保持型候補復活・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
+      <div class="version-note">追加入力加速・履歴保持型候補復活・PC候補数表示・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
