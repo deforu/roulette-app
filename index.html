@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSV保存・復元対応ルーレット v8</title>
+  <title>比率切替対応ルーレット v10</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -423,7 +423,7 @@
 
     .filter-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr auto;
       gap: 8px;
       margin-bottom: 12px;
     }
@@ -444,6 +444,32 @@
       transform: translateY(-1px);
       border-color: rgba(91, 91, 214, 0.48);
       background: #f4f3ff;
+    }
+
+    .ratio-mode-button {
+      min-width: 88px;
+      color: #ffffff;
+      border-color: var(--primary);
+      background: var(--primary);
+      white-space: nowrap;
+    }
+
+    .ratio-mode-button:not(:disabled):hover {
+      color: #ffffff;
+      border-color: var(--primary-dark);
+      background: var(--primary-dark);
+    }
+
+    .ratio-mode-button.is-off {
+      color: #656d7e;
+      border-color: #d7dce6;
+      background: #eceff4;
+    }
+
+    .ratio-mode-button.is-off:not(:disabled):hover {
+      color: #4f5668;
+      border-color: #c9cfdb;
+      background: #e3e7ee;
     }
 
     .genre-list {
@@ -565,6 +591,10 @@
       opacity: 0.62;
     }
 
+    .ratio-control.is-disabled {
+      opacity: 0.48;
+    }
+
     @media (max-width: 430px) {
       .list-item {
         gap: 7px;
@@ -663,108 +693,6 @@
       color: var(--success);
     }
 
-    .modal-backdrop {
-      position: fixed;
-      z-index: 100;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      background: rgba(20, 24, 36, 0.56);
-      backdrop-filter: blur(6px);
-    }
-
-    .modal-backdrop[hidden] {
-      display: none;
-    }
-
-    .modal-card {
-      width: min(520px, 100%);
-      max-height: min(720px, calc(100vh - 40px));
-      overflow-y: auto;
-      padding: 24px;
-      border: 1px solid rgba(223, 228, 238, 0.95);
-      border-radius: 20px;
-      background: #ffffff;
-      box-shadow: 0 24px 70px rgba(18, 23, 38, 0.28);
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .modal-header h2 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    .modal-close {
-      flex: 0 0 auto;
-      width: 38px;
-      height: 38px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      color: #4f5668;
-      background: #ffffff;
-      font-size: 24px;
-      line-height: 1;
-    }
-
-    .modal-description {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.7;
-    }
-
-    .import-options {
-      display: grid;
-      gap: 12px;
-    }
-
-    .import-option {
-      width: 100%;
-      min-height: 82px;
-      display: grid;
-      gap: 5px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px 16px;
-      color: var(--text);
-      background: #ffffff;
-      text-align: left;
-    }
-
-    .import-option:not(:disabled):hover {
-      border-color: rgba(91, 91, 214, 0.52);
-      background: #f7f6ff;
-    }
-
-    .import-option strong {
-      font-size: 15px;
-    }
-
-    .import-option span {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .csv-format-note {
-      margin-top: 16px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      color: #4f5668;
-      background: #f5f7fb;
-      font-size: 12px;
-      line-height: 1.65;
-      overflow-wrap: anywhere;
-    }
-
     .visually-hidden-file {
       display: none;
     }
@@ -831,8 +759,8 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <div class="version-note">CSV保存・復元対応版</div>
-      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。CSVで設定全体を保存・復元できます。</p>
+      <div class="version-note">比率切替・CSV保存対応版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率をオフにすると、表示中の全候補が同じ確率になります。CSVで設定全体を保存・復元できます。</p>
     </header>
 
     <div class="main-grid">
@@ -873,9 +801,10 @@
             <h2>現在のジャンル</h2>
             <span id="genreCount" class="count-badge" aria-label="表示中ジャンル数と全ジャンル数">0 / 0</span>
           </div>
-          <div class="filter-actions" aria-label="ジャンルの一括表示設定">
+          <div class="filter-actions" aria-label="ジャンルの一括表示設定と比率設定">
             <button id="showAllGenresButton" class="filter-action-button" type="button">すべて表示</button>
             <button id="hideAllGenresButton" class="filter-action-button" type="button">すべて非表示</button>
+            <button id="ratioModeButton" class="filter-action-button ratio-mode-button" type="button" aria-pressed="true">比率 ON</button>
           </div>
           <ul id="genreList" class="genre-list"></ul>
         </section>
@@ -891,7 +820,7 @@
             <button id="resetButton" class="button button-reset" type="button">初期化</button>
           </div>
           <div class="data-actions" aria-label="データのインポートとエクスポート">
-            <button id="importButton" class="button-import" type="button">インポート</button>
+            <button id="importButton" class="button-import" type="button">CSVインポート</button>
             <button id="exportButton" class="button-export" type="button">CSVエクスポート</button>
           </div>
         </section>
@@ -900,30 +829,6 @@
 
   </main>
 
-  <div id="importModal" class="modal-backdrop" hidden>
-    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
-      <div class="modal-header">
-        <h2 id="importModalTitle">データをインポート</h2>
-        <button id="closeImportModalButton" class="modal-close" type="button" aria-label="閉じる">×</button>
-      </div>
-      <p class="modal-description">インポートすると、現在の候補・ジャンル設定・選択済み一覧をCSVの内容で置き換えます。</p>
-      <div class="import-options">
-        <button id="chooseCsvButton" class="import-option" type="button">
-          <strong>CSVファイルをインポート</strong>
-          <span>候補、ジャンル、比率、表示状態、選択済み状態を読み込みます。</span>
-        </button>
-        <button class="import-option" type="button" disabled>
-          <strong>公開スプレッドシートを読み込む</strong>
-          <span>この機能は今後の実装対象です。</span>
-        </button>
-      </div>
-      <div class="csv-format-note">
-        必須列：候補<br>
-        任意列：ジャンル、ジャンル比率、ジャンル表示、選択済み<br>
-        任意列が空欄の場合は、比率1・表示・未選択として扱います。
-      </div>
-    </section>
-  </div>
   <input id="csvFileInput" class="visually-hidden-file" type="file" accept=".csv,text/csv" />
 
   <script>
@@ -980,12 +885,14 @@
     const resetButton = document.getElementById("resetButton");
     const showAllGenresButton = document.getElementById("showAllGenresButton");
     const hideAllGenresButton = document.getElementById("hideAllGenresButton");
+    const ratioModeButton = document.getElementById("ratioModeButton");
     const importButton = document.getElementById("importButton");
     const exportButton = document.getElementById("exportButton");
-    const importModal = document.getElementById("importModal");
-    const closeImportModalButton = document.getElementById("closeImportModalButton");
-    const chooseCsvButton = document.getElementById("chooseCsvButton");
     const csvFileInput = document.getElementById("csvFileInput");
+
+    const spinSound = new Audio("roulette-spin.wav");
+    spinSound.preload = "auto";
+    spinSound.loop = false;
 
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
@@ -996,6 +903,7 @@
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
+    let ratioEnabled = true;
 
     function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
@@ -1249,6 +1157,13 @@
       genreCount.textContent = `${visibleGroupCount} / ${totalGroupCount}`;
       showAllGenresButton.disabled = locked || totalGroupCount === 0 || visibleGroupCount === totalGroupCount;
       hideAllGenresButton.disabled = locked || totalGroupCount === 0 || visibleGroupCount === 0;
+      ratioModeButton.disabled = locked;
+      ratioModeButton.textContent = ratioEnabled ? "比率 ON" : "比率 OFF";
+      ratioModeButton.classList.toggle("is-off", !ratioEnabled);
+      ratioModeButton.setAttribute("aria-pressed", String(ratioEnabled));
+      ratioModeButton.title = ratioEnabled
+        ? "ジャンル比率を無効にして、全候補を同じ確率にする"
+        : "ジャンル比率を有効にする";
 
       if (totalGroupCount === 0) {
         const empty = document.createElement("li");
@@ -1273,7 +1188,7 @@
         text.textContent = `${displayGenre(group.genre)}（${group.count}件）`;
 
         const ratioControl = document.createElement("label");
-        ratioControl.className = "ratio-control";
+        ratioControl.className = ratioEnabled ? "ratio-control" : "ratio-control is-disabled";
 
         const ratioLabel = document.createElement("span");
         ratioLabel.textContent = "比率";
@@ -1285,7 +1200,7 @@
         ratioInput.step = "0.1";
         ratioInput.value = formatRatio(setting.ratio);
         ratioInput.dataset.action = "change-ratio";
-        ratioInput.disabled = locked;
+        ratioInput.disabled = locked || !ratioEnabled;
         ratioInput.setAttribute(
           "aria-label",
           `${displayGenre(group.genre)}の当選比率`
@@ -1371,6 +1286,24 @@
     function getWheelSegments() {
       if (candidates.length === 0) {
         return [];
+      }
+
+      if (!ratioEnabled) {
+        const equalProbability = 1 / candidates.length;
+        const equalAngle = Math.PI * 2 * equalProbability;
+        let angleCursor = 0;
+
+        return candidates.map((candidate, candidateIndex) => {
+          const segment = {
+            candidate,
+            candidateIndex,
+            start: angleCursor,
+            angle: equalAngle,
+            probability: equalProbability
+          };
+          angleCursor += equalAngle;
+          return segment;
+        });
       }
 
       const countsByFilter = new Map();
@@ -1492,6 +1425,23 @@
       ) || segments[segments.length - 1];
     }
 
+    function startSpinSound() {
+      spinSound.pause();
+      spinSound.currentTime = 0;
+
+      const playPromise = spinSound.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // 音声ファイルが未配置、またはブラウザに再生を拒否された場合も抽選は続行します。
+        });
+      }
+    }
+
+    function stopSpinSound() {
+      spinSound.pause();
+      spinSound.currentTime = 0;
+    }
+
     function spinRoulette() {
       if (spinning || candidates.length === 0 || currentResultIndex !== null) {
         return;
@@ -1504,6 +1454,7 @@
 
       spinning = true;
       resetResult();
+      startSpinSound();
       setMessage("抽選中です…");
       spinButton.disabled = true;
       applyButton.disabled = true;
@@ -1536,6 +1487,7 @@
         }
 
         currentRotation = targetRotation;
+        stopSpinSound();
         currentResultIndex = chosenIndex;
         resultValue.textContent = formatResult(candidates[chosenIndex]);
         decisionButton.disabled = false;
@@ -1635,6 +1587,7 @@
     function resetAll() {
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
+      ratioEnabled = true;
       allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
@@ -1686,7 +1639,7 @@
     }
 
     function updateGenreRatio(filterKey, rawValue) {
-      if (isFilterLocked()) {
+      if (isFilterLocked() || !ratioEnabled) {
         return;
       }
 
@@ -1707,12 +1660,31 @@
       setMessage(`${getFilterGroupLabel(filterKey)}の比率を${formatRatio(rounded)}に変更しました。`, "success");
     }
 
+    function toggleRatioMode() {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      ratioEnabled = !ratioEnabled;
+      currentRotation = 0;
+      resetResult();
+      renderState();
+      drawWheel(0);
+      setMessage(
+        ratioEnabled
+          ? "ジャンル比率を有効にしました。各ジャンルの比率を設定できます。"
+          : "ジャンル比率を無効にしました。表示中の全候補が同じ確率になります。",
+        "success"
+      );
+    }
+
     const CSV_COLUMN_ALIASES = {
       candidate: ["候補", "候補名", "candidate", "item", "value"],
       genre: ["ジャンル", "genre", "category"],
       ratio: ["ジャンル比率", "比率", "ratio", "genreratio", "genre_ratio"],
       visible: ["ジャンル表示", "表示状態", "表示", "visible", "visibility"],
-      selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"]
+      selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"],
+      ratioEnabled: ["比率設定", "比率有効", "比率モード", "ratioenabled", "ratio_enabled"]
     };
 
     function normalizeCsvHeader(value) {
@@ -1812,10 +1784,14 @@
       const commonFalse = ["false", "0", "no", "n", "off"];
       const trueValues = type === "visible"
         ? [...commonTrue, "表示", "表示中", "visible"]
-        : [...commonTrue, "選択済み", "決定済み", "selected"];
+        : type === "selected"
+          ? [...commonTrue, "選択済み", "決定済み", "selected"]
+          : [...commonTrue, "有効", "比率有効", "enabled"];
       const falseValues = type === "visible"
         ? [...commonFalse, "非表示", "hidden"]
-        : [...commonFalse, "未選択", "未決定", "候補"];
+        : type === "selected"
+          ? [...commonFalse, "未選択", "未決定", "候補"]
+          : [...commonFalse, "無効", "比率無効", "disabled"];
 
       if (trueValues.includes(normalized)) {
         return true;
@@ -1824,7 +1800,12 @@
         return false;
       }
 
-      throw new Error(`${rowNumber}行目の${type === "visible" ? "表示状態" : "選択済み状態"}を判定できません。`);
+      const fieldName = type === "visible"
+        ? "表示状態"
+        : type === "selected"
+          ? "選択済み状態"
+          : "比率設定";
+      throw new Error(`${rowNumber}行目の${fieldName}を判定できません。`);
     }
 
     function escapeCsvValue(value) {
@@ -1848,7 +1829,7 @@
       }
 
       const exportCandidates = buildCandidates();
-      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み"]];
+      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "比率設定"]];
 
       exportCandidates.forEach((candidate) => {
         const setting = getCandidateExportSetting(candidate);
@@ -1857,7 +1838,8 @@
           candidate.value,
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
-          "false"
+          "false",
+          ratioEnabled ? "true" : "false"
         ]);
       });
 
@@ -1868,7 +1850,8 @@
           candidate.value,
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
-          "true"
+          "true",
+          ratioEnabled ? "true" : "false"
         ]);
       });
 
@@ -1894,19 +1877,6 @@
       setMessage(`${rows.length - 1}件のデータをCSVで出力しました。`, "success");
     }
 
-    function openImportModal() {
-      if (isFilterLocked()) {
-        return;
-      }
-      importModal.hidden = false;
-      closeImportModalButton.focus();
-    }
-
-    function closeImportModal() {
-      importModal.hidden = true;
-      importButton.focus();
-    }
-
     function importCsvText(text, fileName) {
       const rows = parseCsv(text);
       if (rows.length < 2) {
@@ -1919,7 +1889,8 @@
         genre: findCsvColumn(headers, CSV_COLUMN_ALIASES.genre),
         ratio: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratio),
         visible: findCsvColumn(headers, CSV_COLUMN_ALIASES.visible),
-        selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected)
+        selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected),
+        ratioEnabled: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratioEnabled)
       };
 
       if (columns.candidate === -1) {
@@ -1930,6 +1901,8 @@
       const importedSelectedItems = [];
       const importedSettings = new Map();
       let importedCount = 0;
+      let importedRatioEnabled = true;
+      let ratioModeWasSpecified = false;
 
       rows.slice(1).forEach((row, rowIndex) => {
         const rowNumber = rowIndex + 2;
@@ -1948,6 +1921,16 @@
         const ratioCell = columns.ratio === -1 ? "" : row[columns.ratio];
         const visibleCell = columns.visible === -1 ? "" : row[columns.visible];
         const selectedCell = columns.selected === -1 ? "" : row[columns.selected];
+        const ratioEnabledCell = columns.ratioEnabled === -1 ? "" : row[columns.ratioEnabled];
+
+        if (String(ratioEnabledCell ?? "").trim() !== "") {
+          const rowRatioEnabled = parseCsvBoolean(ratioEnabledCell, true, "ratioEnabled", rowNumber);
+          if (ratioModeWasSpecified && rowRatioEnabled !== importedRatioEnabled) {
+            throw new Error(`${rowNumber}行目の比率設定が他の行と一致していません。`);
+          }
+          importedRatioEnabled = rowRatioEnabled;
+          ratioModeWasSpecified = true;
+        }
 
         if (!importedSettings.has(filterKey)) {
           importedSettings.set(filterKey, { visible: true, ratio: 1 });
@@ -2003,6 +1986,7 @@
       }
 
       filterSettings = importedSettings;
+      ratioEnabled = importedRatioEnabled;
       selectedItems = importedSelectedItems;
       allCandidates = buildCandidates();
       selectedItems = selectedItems.map((candidate) => ({
@@ -2082,23 +2066,13 @@
       updateGenreRatio(item.dataset.filterKey, ratioInput.value);
     });
 
-    importButton.addEventListener("click", openImportModal);
-    exportButton.addEventListener("click", exportCsv);
-    closeImportModalButton.addEventListener("click", closeImportModal);
-    chooseCsvButton.addEventListener("click", () => {
-      closeImportModal();
+    importButton.addEventListener("click", () => {
+      if (isFilterLocked()) {
+        return;
+      }
       csvFileInput.click();
     });
-    importModal.addEventListener("click", (event) => {
-      if (event.target === importModal) {
-        closeImportModal();
-      }
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !importModal.hidden) {
-        closeImportModal();
-      }
-    });
+    exportButton.addEventListener("click", exportCsv);
     csvFileInput.addEventListener("change", async () => {
       const [file] = csvFileInput.files;
       if (!file) {
@@ -2117,6 +2091,7 @@
 
     showAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(true));
     hideAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(false));
+    ratioModeButton.addEventListener("click", toggleRatioMode);
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
