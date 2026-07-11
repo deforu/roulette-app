@@ -1158,7 +1158,7 @@
         <section class="panel roulette-panel" aria-label="ルーレット">
           <div class="roulette-mobile-summary" aria-label="抽選設定と候補数">
             <button id="mobileRatioModeButton" class="filter-action-button ratio-mode-button mobile-ratio-mode-button" type="button" aria-pressed="true">比率 ON</button>
-            <div class="mobile-candidate-count" aria-label="残り候補数と全体候補数" title="全体候補数は、復活中の候補を重複して数えません">
+            <div class="mobile-candidate-count" aria-label="表示中ジャンルの残り候補数と全体候補数" title="非表示ジャンルを除外し、復活中の候補は重複して数えません">
               <span>残り</span>
               <strong id="remainingCandidateCount">0</strong>
               <span class="count-separator">/</span>
@@ -1531,22 +1531,31 @@
       );
     }
 
-    function getOverallUniqueCandidateCount() {
+    function isCandidateGenreVisible(candidate) {
+      return getFilterSetting(candidate.filterKey).visible;
+    }
+
+    function getVisibleOverallUniqueCandidateCount() {
       const uniqueCandidates = new Set();
 
       allCandidates.forEach((candidate) => {
-        uniqueCandidates.add(getSelectedItemKey(candidate));
+        if (isCandidateGenreVisible(candidate)) {
+          uniqueCandidates.add(getSelectedItemKey(candidate));
+        }
       });
       selectedItems.forEach((candidate) => {
-        uniqueCandidates.add(getSelectedItemKey(candidate));
+        if (isCandidateGenreVisible(candidate)) {
+          uniqueCandidates.add(getSelectedItemKey(candidate));
+        }
       });
 
       return uniqueCandidates.size;
     }
 
     function renderCandidateSummary() {
-      remainingCandidateCount.textContent = String(allCandidates.length);
-      totalCandidateCount.textContent = String(getOverallUniqueCandidateCount());
+      const visibleRemainingCount = allCandidates.filter(isCandidateGenreVisible).length;
+      remainingCandidateCount.textContent = String(visibleRemainingCount);
+      totalCandidateCount.textContent = String(getVisibleOverallUniqueCandidateCount());
     }
 
     function addSelectedItem(candidate, count = 1) {
