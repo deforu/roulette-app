@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ジャンルフィルター付きルーレット v3</title>
+  <title>ジャンル比率設定付きルーレット v7</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -101,6 +101,7 @@
     .roulette-panel {
       padding: 28px;
     }
+
 
     .wheel-area {
       position: relative;
@@ -208,9 +209,18 @@
       border: 1px solid #d9deea;
     }
 
+    .left-column {
+      min-width: 0;
+      display: grid;
+      gap: 24px;
+      align-content: start;
+    }
+
     .sidebar {
+      min-width: 0;
       display: grid;
       gap: 18px;
+      align-content: start;
     }
 
     .settings-panel,
@@ -478,8 +488,60 @@
       background: #eceef3;
     }
 
+    .ratio-control {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .ratio-input {
+      width: 66px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 6px 8px;
+      color: var(--text);
+      background: #ffffff;
+      text-align: right;
+      font-weight: 800;
+      outline: none;
+    }
+
+    .ratio-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(91, 91, 214, 0.12);
+    }
+
+    .list-item.is-hidden .ratio-control {
+      opacity: 0.62;
+    }
+
+    @media (max-width: 430px) {
+      .list-item {
+        gap: 7px;
+        padding: 10px;
+      }
+
+      .item-number {
+        display: none;
+      }
+
+      .ratio-control span {
+        display: none;
+      }
+
+      .ratio-input {
+        width: 58px;
+      }
+    }
+
     .selected-section {
-      margin-top: 24px;
+      margin-top: 0;
       padding: 24px;
     }
 
@@ -563,7 +625,7 @@
       }
 
       .sidebar {
-        grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+        grid-template-columns: 1fr;
       }
     }
 
@@ -618,33 +680,55 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <div class="version-note">ジャンルフィルター対応版</div>
-      <p>ジャンルごとに候補を登録し、「現在のジャンル」欄からルーレットに含めるグループを複数選択できます。</p>
+      <div class="version-note">レイアウト再配置版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率はジャンル全体の当選確率に反映されます。</p>
     </header>
 
     <div class="main-grid">
-      <section class="panel roulette-panel" aria-label="ルーレット">
-        <div class="wheel-area">
-          <div class="pointer" aria-hidden="true"></div>
-          <div class="canvas-wrap">
-            <canvas id="wheelCanvas" width="900" height="900"></canvas>
+      <div class="left-column">
+        <section class="panel roulette-panel" aria-label="ルーレット">
+          <div class="wheel-area">
+            <div class="pointer" aria-hidden="true"></div>
+            <div class="canvas-wrap">
+              <canvas id="wheelCanvas" width="900" height="900"></canvas>
+            </div>
           </div>
-        </div>
 
-        <div class="result-card" aria-live="polite">
-          <div class="result-label">選択結果</div>
-          <div id="resultValue" class="result-value">まだ選択されていません</div>
-        </div>
+          <div class="result-card" aria-live="polite">
+            <div class="result-label">選択結果</div>
+            <div id="resultValue" class="result-value">まだ選択されていません</div>
+          </div>
 
-        <div class="controls">
-          <button id="spinButton" class="button button-primary" type="button">ルーレットを回す</button>
-          <button id="decisionButton" class="button button-decision" type="button" disabled>決定</button>
-          <button id="holdButton" class="button button-hold" type="button" disabled>保留</button>
-        </div>
-        <div id="message" class="message" aria-live="polite"></div>
-      </section>
+          <div class="controls">
+            <button id="spinButton" class="button button-primary" type="button">ルーレットを回す</button>
+            <button id="decisionButton" class="button button-decision" type="button" disabled>決定</button>
+            <button id="holdButton" class="button button-hold" type="button" disabled>保留</button>
+          </div>
+          <div id="message" class="message" aria-live="polite"></div>
+        </section>
+
+        <section class="panel selected-section" aria-label="選択済み候補">
+          <div class="selected-header">
+            <h2>選択済み</h2>
+            <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
+          </div>
+          <div id="selectedGroups" class="selected-groups"></div>
+        </section>
+      </div>
 
       <aside class="sidebar">
+        <section class="panel genre-panel" aria-label="現在のジャンルと抽選設定">
+          <div class="panel-title">
+            <h2>現在のジャンル</h2>
+            <span id="genreCount" class="count-badge" aria-label="表示中ジャンル数と全ジャンル数">0 / 0</span>
+          </div>
+          <div class="filter-actions" aria-label="ジャンルの一括表示設定">
+            <button id="showAllGenresButton" class="filter-action-button" type="button">すべて表示</button>
+            <button id="hideAllGenresButton" class="filter-action-button" type="button">すべて非表示</button>
+          </div>
+          <ul id="genreList" class="genre-list"></ul>
+        </section>
+
         <section class="panel settings-panel">
           <div class="panel-title">
             <h2>候補を編集</h2>
@@ -656,28 +740,9 @@
             <button id="resetButton" class="button button-reset" type="button">初期化</button>
           </div>
         </section>
-
-        <section class="panel genre-panel">
-          <div class="panel-title">
-            <h2>現在のジャンル</h2>
-            <span id="genreCount" class="count-badge" aria-label="表示中ジャンル数と全ジャンル数">0 / 0</span>
-          </div>
-          <div class="filter-actions" aria-label="ジャンルの一括表示設定">
-            <button id="showAllGenresButton" class="filter-action-button" type="button">すべて表示</button>
-            <button id="hideAllGenresButton" class="filter-action-button" type="button">すべて非表示</button>
-          </div>
-          <ul id="genreList" class="genre-list"></ul>
-        </section>
       </aside>
     </div>
 
-    <section class="panel selected-section">
-      <div class="selected-header">
-        <h2>選択済み</h2>
-        <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
-      </div>
-      <div id="selectedGroups" class="selected-groups"></div>
-    </section>
   </main>
 
   <script>
@@ -687,6 +752,9 @@
         itemsText: "A案\nB案\nC案\nD案\nE案\nF案"
       }
     ];
+
+    const NO_GENRE_KEY = "__no-genre__";
+    const MIN_RATIO = 0.1;
 
     const COLORS = [
       "#5B5BD6",
@@ -734,6 +802,7 @@
 
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
+    let filterSettings = new Map();
     let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
@@ -741,18 +810,17 @@
     let currentRotation = 0;
     let spinning = false;
 
-    function createGroup(genre = "", itemsText = "", visible = true) {
+    function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
       return {
         id: `group-${groupSequence}`,
         genre,
-        itemsText,
-        visible
+        itemsText
       };
     }
 
     function createDefaultGroups() {
-      return DEFAULT_GROUPS.map((group) => createGroup(group.genre, group.itemsText, true));
+      return DEFAULT_GROUPS.map((group) => createGroup(group.genre, group.itemsText));
     }
 
     function normalizeItems(text) {
@@ -770,6 +838,36 @@
         });
     }
 
+    function getFilterKey(group) {
+      return group.genre.trim() ? group.id : NO_GENRE_KEY;
+    }
+
+    function displayGenre(genre) {
+      return genre || "ジャンルなし";
+    }
+
+    function getFilterSetting(filterKey) {
+      if (!filterSettings.has(filterKey)) {
+        filterSettings.set(filterKey, {
+          visible: true,
+          ratio: 1
+        });
+      }
+      return filterSettings.get(filterKey);
+    }
+
+    function syncFilterSettings() {
+      const activeKeys = new Set(allCandidates.map((candidate) => candidate.filterKey));
+
+      [...filterSettings.keys()].forEach((key) => {
+        if (!activeKeys.has(key)) {
+          filterSettings.delete(key);
+        }
+      });
+
+      activeKeys.forEach((key) => getFilterSetting(key));
+    }
+
     function buildCandidates() {
       const nextCandidates = [];
 
@@ -778,10 +876,12 @@
         const items = normalizeItems(group.itemsText);
         group.genre = genre;
         group.itemsText = items.join("\n");
+        const filterKey = genre ? group.id : NO_GENRE_KEY;
 
         items.forEach((value) => {
           nextCandidates.push({
             groupId: group.id,
+            filterKey,
             genre,
             value
           });
@@ -791,22 +891,47 @@
       return nextCandidates;
     }
 
-    function updateVisibleCandidates() {
-      const visibilityByGroup = new Map(
-        inputGroups.map((group) => [group.id, group.visible])
-      );
+    function getFilterGroups() {
+      const filterGroups = [];
+      const groupByKey = new Map();
 
+      inputGroups.forEach((group) => {
+        const count = allCandidates.filter((candidate) => candidate.groupId === group.id).length;
+        if (count === 0) {
+          return;
+        }
+
+        const genre = group.genre.trim();
+        const filterKey = genre ? group.id : NO_GENRE_KEY;
+
+        if (filterKey === NO_GENRE_KEY && groupByKey.has(filterKey)) {
+          groupByKey.get(filterKey).count += count;
+          groupByKey.get(filterKey).groupIds.push(group.id);
+          return;
+        }
+
+        const filterGroup = {
+          filterKey,
+          genre,
+          count,
+          groupIds: [group.id]
+        };
+
+        filterGroups.push(filterGroup);
+        groupByKey.set(filterKey, filterGroup);
+      });
+
+      return filterGroups;
+    }
+
+    function updateVisibleCandidates() {
       candidates = allCandidates.filter(
-        (candidate) => visibilityByGroup.get(candidate.groupId) === true
+        (candidate) => getFilterSetting(candidate.filterKey).visible
       );
     }
 
     function formatResult(candidate) {
       return candidate.genre ? `${candidate.genre}：${candidate.value}` : candidate.value;
-    }
-
-    function displayGenre(genre) {
-      return genre || "ジャンルなし";
     }
 
     function setMessage(text = "", type = "") {
@@ -916,19 +1041,17 @@
       return groups;
     }
 
+    function formatRatio(value) {
+      return Number(value.toFixed(2)).toString();
+    }
+
     function renderGenres() {
       genreList.innerHTML = "";
-      const countsByGroup = new Map();
-
-      allCandidates.forEach((candidate) => {
-        countsByGroup.set(candidate.groupId, (countsByGroup.get(candidate.groupId) || 0) + 1);
-      });
-
-      const groupsWithCandidates = inputGroups.filter(
-        (group) => (countsByGroup.get(group.id) || 0) > 0
-      );
-      const visibleGroupCount = groupsWithCandidates.filter((group) => group.visible).length;
-      const totalGroupCount = groupsWithCandidates.length;
+      const filterGroups = getFilterGroups();
+      const visibleGroupCount = filterGroups.filter(
+        (group) => getFilterSetting(group.filterKey).visible
+      ).length;
+      const totalGroupCount = filterGroups.length;
       const locked = isFilterLocked();
 
       genreCount.textContent = `${visibleGroupCount} / ${totalGroupCount}`;
@@ -943,10 +1066,11 @@
         return;
       }
 
-      groupsWithCandidates.forEach((group, index) => {
+      filterGroups.forEach((group, index) => {
+        const setting = getFilterSetting(group.filterKey);
         const item = document.createElement("li");
-        item.className = group.visible ? "list-item" : "list-item is-hidden";
-        item.dataset.groupId = group.id;
+        item.className = setting.visible ? "list-item" : "list-item is-hidden";
+        item.dataset.filterKey = group.filterKey;
 
         const number = document.createElement("span");
         number.className = "item-number";
@@ -954,23 +1078,44 @@
 
         const text = document.createElement("span");
         text.className = "item-text";
-        text.textContent = `${displayGenre(group.genre)}（${countsByGroup.get(group.id)}件）`;
+        text.textContent = `${displayGenre(group.genre)}（${group.count}件）`;
+
+        const ratioControl = document.createElement("label");
+        ratioControl.className = "ratio-control";
+
+        const ratioLabel = document.createElement("span");
+        ratioLabel.textContent = "比率";
+
+        const ratioInput = document.createElement("input");
+        ratioInput.className = "ratio-input";
+        ratioInput.type = "number";
+        ratioInput.min = String(MIN_RATIO);
+        ratioInput.step = "0.1";
+        ratioInput.value = formatRatio(setting.ratio);
+        ratioInput.dataset.action = "change-ratio";
+        ratioInput.disabled = locked;
+        ratioInput.setAttribute(
+          "aria-label",
+          `${displayGenre(group.genre)}の当選比率`
+        );
+
+        ratioControl.append(ratioLabel, ratioInput);
 
         const visibilityButton = document.createElement("button");
-        visibilityButton.className = group.visible
+        visibilityButton.className = setting.visible
           ? "visibility-button"
           : "visibility-button is-hidden";
         visibilityButton.type = "button";
         visibilityButton.dataset.action = "toggle-visibility";
         visibilityButton.disabled = locked;
-        visibilityButton.innerHTML = group.visible ? EYE_OPEN_ICON : EYE_CLOSED_ICON;
+        visibilityButton.innerHTML = setting.visible ? EYE_OPEN_ICON : EYE_CLOSED_ICON;
         visibilityButton.setAttribute(
           "aria-label",
-          `${displayGenre(group.genre)}を${group.visible ? "非表示" : "表示"}にする`
+          `${displayGenre(group.genre)}を${setting.visible ? "非表示" : "表示"}にする`
         );
-        visibilityButton.title = group.visible ? "ルーレットから非表示にする" : "ルーレットに表示する";
+        visibilityButton.title = setting.visible ? "ルーレットから非表示にする" : "ルーレットに表示する";
 
-        item.append(number, text, visibilityButton);
+        item.append(number, text, ratioControl, visibilityButton);
         genreList.appendChild(item);
       });
     }
@@ -1020,12 +1165,49 @@
       let size = baseSize;
       context.font = `700 ${size}px sans-serif`;
 
-      while (context.measureText(text).width > maxWidth && size > 18) {
+      while (context.measureText(text).width > maxWidth && size > 16) {
         size -= 1;
         context.font = `700 ${size}px sans-serif`;
       }
 
       return size;
+    }
+
+    function getWheelSegments() {
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const countsByFilter = new Map();
+      candidates.forEach((candidate) => {
+        countsByFilter.set(
+          candidate.filterKey,
+          (countsByFilter.get(candidate.filterKey) || 0) + 1
+        );
+      });
+
+      const activeFilterKeys = [...countsByFilter.keys()];
+      const totalRatio = activeFilterKeys.reduce(
+        (sum, filterKey) => sum + getFilterSetting(filterKey).ratio,
+        0
+      );
+
+      let angleCursor = 0;
+      return candidates.map((candidate, candidateIndex) => {
+        const setting = getFilterSetting(candidate.filterKey);
+        const countInGenre = countsByFilter.get(candidate.filterKey);
+        const candidateProbability = (setting.ratio / countInGenre) / totalRatio;
+        const angle = Math.PI * 2 * candidateProbability;
+        const segment = {
+          candidate,
+          candidateIndex,
+          start: angleCursor,
+          angle,
+          probability: candidateProbability
+        };
+        angleCursor += angle;
+        return segment;
+      });
     }
 
     function drawWheel(rotation = currentRotation) {
@@ -1040,7 +1222,9 @@
       context.translate(centerX, centerY);
       context.rotate(rotation);
 
-      if (candidates.length === 0) {
+      const segments = getWheelSegments();
+
+      if (segments.length === 0) {
         context.beginPath();
         context.arc(0, 0, radius, 0, Math.PI * 2);
         context.fillStyle = "#e7eaf0";
@@ -1058,11 +1242,9 @@
         return;
       }
 
-      const arc = (Math.PI * 2) / candidates.length;
-
-      candidates.forEach((candidate, index) => {
-        const startAngle = index * arc - Math.PI / 2;
-        const endAngle = startAngle + arc;
+      segments.forEach((segment, index) => {
+        const startAngle = segment.start - Math.PI / 2;
+        const endAngle = startAngle + segment.angle;
 
         context.beginPath();
         context.moveTo(0, 0);
@@ -1075,20 +1257,22 @@
         context.lineWidth = 5;
         context.stroke();
 
-        context.save();
-        context.rotate(startAngle + arc / 2);
-        context.translate(radius * 0.63, 0);
-        context.rotate(Math.PI / 2);
-        context.fillStyle = "#ffffff";
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        const maxTextWidth = Math.max(110, arc * radius * 0.78);
-        const fontSize = fitText(candidate.value, maxTextWidth, candidates.length > 12 ? 24 : 31);
-        context.font = `700 ${fontSize}px sans-serif`;
-        context.shadowColor = "rgba(0, 0, 0, 0.25)";
-        context.shadowBlur = 5;
-        context.fillText(candidate.value, 0, 0, maxTextWidth);
-        context.restore();
+        if (segment.angle >= 0.035) {
+          context.save();
+          context.rotate(startAngle + segment.angle / 2);
+          context.translate(radius * 0.63, 0);
+          context.rotate(Math.PI / 2);
+          context.fillStyle = "#ffffff";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          const maxTextWidth = Math.max(72, segment.angle * radius * 0.78);
+          const fontSize = fitText(segment.candidate.value, maxTextWidth, candidates.length > 12 ? 24 : 31);
+          context.font = `700 ${fontSize}px sans-serif`;
+          context.shadowColor = "rgba(0, 0, 0, 0.25)";
+          context.shadowBlur = 5;
+          context.fillText(segment.candidate.value, 0, 0, maxTextWidth);
+          context.restore();
+        }
       });
 
       context.beginPath();
@@ -1106,8 +1290,20 @@
       return 1 - Math.pow(1 - value, 3);
     }
 
+    function selectWeightedSegment(segments) {
+      const randomAngle = Math.random() * Math.PI * 2;
+      return segments.find(
+        (segment) => randomAngle >= segment.start && randomAngle < segment.start + segment.angle
+      ) || segments[segments.length - 1];
+    }
+
     function spinRoulette() {
       if (spinning || candidates.length === 0 || currentResultIndex !== null) {
+        return;
+      }
+
+      const segments = getWheelSegments();
+      if (segments.length === 0) {
         return;
       }
 
@@ -1120,9 +1316,9 @@
       setInputControlsDisabled(true);
       renderGenres();
 
-      const chosenIndex = Math.floor(Math.random() * candidates.length);
-      const arc = (Math.PI * 2) / candidates.length;
-      const targetCenter = chosenIndex * arc + arc / 2;
+      const chosenSegment = selectWeightedSegment(segments);
+      const chosenIndex = chosenSegment.candidateIndex;
+      const targetCenter = chosenSegment.start + chosenSegment.angle / 2;
       const baseTurns = (6 + Math.floor(Math.random() * 3)) * Math.PI * 2;
       const currentNormalized = ((currentRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
       const targetNormalized = (Math.PI * 2 - targetCenter) % (Math.PI * 2);
@@ -1187,6 +1383,7 @@
 
       selectedItems.push(decided);
       removeCandidateFromInput(decided);
+      syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
@@ -1220,6 +1417,7 @@
       }
 
       allCandidates = nextCandidates;
+      syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
@@ -1236,7 +1434,9 @@
 
     function resetAll() {
       inputGroups = createDefaultGroups();
+      filterSettings = new Map();
       allCandidates = buildCandidates();
+      syncFilterSettings();
       updateVisibleCandidates();
       selectedItems = [];
       currentRotation = 0;
@@ -1247,24 +1447,25 @@
       setMessage("初期状態に戻しました。");
     }
 
-    function applyGenreVisibility(groupId, visible) {
+    function getFilterGroupLabel(filterKey) {
+      const filterGroup = getFilterGroups().find((group) => group.filterKey === filterKey);
+      return filterGroup ? displayGenre(filterGroup.genre) : "ジャンル";
+    }
+
+    function applyGenreVisibility(filterKey, visible) {
       if (isFilterLocked()) {
         return;
       }
 
-      const group = inputGroups.find((item) => item.id === groupId);
-      if (!group) {
-        return;
-      }
-
-      group.visible = visible;
+      const setting = getFilterSetting(filterKey);
+      setting.visible = visible;
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
       renderState();
       drawWheel(0);
       setMessage(
-        `${displayGenre(group.genre)}をルーレットで${visible ? "表示" : "非表示"}にしました。`
+        `${getFilterGroupLabel(filterKey)}をルーレットで${visible ? "表示" : "非表示"}にしました。`
       );
     }
 
@@ -1273,8 +1474,8 @@
         return;
       }
 
-      inputGroups.forEach((group) => {
-        group.visible = visible;
+      getFilterGroups().forEach((group) => {
+        getFilterSetting(group.filterKey).visible = visible;
       });
       updateVisibleCandidates();
       currentRotation = 0;
@@ -1282,6 +1483,28 @@
       renderState();
       drawWheel(0);
       setMessage(visible ? "すべてのジャンルを表示しました。" : "すべてのジャンルを非表示にしました。");
+    }
+
+    function updateGenreRatio(filterKey, rawValue) {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      const parsed = Number(rawValue);
+      const isValid = Number.isFinite(parsed) && parsed > 0;
+      const normalized = isValid ? Math.max(MIN_RATIO, parsed) : 1;
+      const rounded = Number(normalized.toFixed(2));
+      getFilterSetting(filterKey).ratio = rounded;
+      currentRotation = 0;
+      renderState();
+      drawWheel(0);
+
+      if (!isValid || parsed < MIN_RATIO) {
+        setMessage(`比率は${MIN_RATIO}以上で入力してください。値を${formatRatio(rounded)}に調整しました。`, "error");
+        return;
+      }
+
+      setMessage(`${getFilterGroupLabel(filterKey)}の比率を${formatRatio(rounded)}に変更しました。`, "success");
     }
 
     inputGroupsContainer.addEventListener("input", (event) => {
@@ -1331,12 +1554,19 @@
         return;
       }
 
-      const group = inputGroups.find((entry) => entry.id === item.dataset.groupId);
-      if (!group) {
+      const filterKey = item.dataset.filterKey;
+      const setting = getFilterSetting(filterKey);
+      applyGenreVisibility(filterKey, !setting.visible);
+    });
+
+    genreList.addEventListener("change", (event) => {
+      const ratioInput = event.target.closest('input[data-action="change-ratio"]');
+      const item = event.target.closest(".list-item");
+      if (!ratioInput || !item || isFilterLocked()) {
         return;
       }
 
-      applyGenreVisibility(group.id, !group.visible);
+      updateGenreRatio(item.dataset.filterKey, ratioInput.value);
     });
 
     showAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(true));
@@ -1348,6 +1578,7 @@
     resetButton.addEventListener("click", resetAll);
 
     allCandidates = buildCandidates();
+    syncFilterSettings();
     updateVisibleCandidates();
     renderInputGroups();
     renderState();
