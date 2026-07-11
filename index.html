@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>追加入力で加速できるルーレット v21</title>
+  <title>追加入力で加速できるルーレット v22</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -753,6 +753,49 @@
       background: #eaf7f0;
     }
 
+    .revive-button:disabled {
+      border-color: #d5d9df;
+      color: #9ba2ad;
+      background: #eef0f3;
+      cursor: not-allowed;
+      opacity: 1;
+    }
+
+    .selected-candidate-row.is-revived .selected-candidate-name {
+      color: #9aa1ab;
+    }
+
+    .selected-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    .revive-all-button {
+      min-height: 40px;
+      border: 1px solid #8fc7ad;
+      border-radius: 11px;
+      padding: 8px 16px;
+      color: #176344;
+      background: #eef9f3;
+      font-size: 14px;
+      font-weight: 800;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .revive-all-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: #5fae89;
+      background: #dff3e8;
+    }
+
+    .revive-all-button:disabled {
+      border-color: #d5d9df;
+      color: #9ba2ad;
+      background: #eef0f3;
+      cursor: not-allowed;
+    }
+
     .empty-state {
       grid-column: 1 / -1;
       padding: 28px;
@@ -857,7 +900,7 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">追加入力加速・履歴保持型候補復活・比率切替・CSV保存・サウンド対応版</div>
+      <div class="version-note">追加入力加速・履歴保持型候補復活・全復活・比率切替・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
@@ -891,6 +934,9 @@
               <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
             </div>
             <div id="selectedGroups" class="selected-groups"></div>
+            <div class="selected-footer">
+              <button id="reviveAllButton" class="revive-all-button" type="button" disabled>全復活</button>
+            </div>
           </section>
         </section>
       </div>
@@ -1003,6 +1049,7 @@
     const selectedGroupsContainer = document.getElementById("selectedGroups");
     const genreCount = document.getElementById("genreCount");
     const selectedCount = document.getElementById("selectedCount");
+    const reviveAllButton = document.getElementById("reviveAllButton");
     const resultValue = document.getElementById("resultValue");
     const message = document.getElementById("message");
     const actionControls = document.getElementById("actionControls");
@@ -1426,6 +1473,15 @@
       selectedGroupsContainer.innerHTML = "";
       selectedCount.textContent = getSelectedTotalCount();
 
+      const locked = isFilterLocked();
+      const restorableCount = selectedItems.filter(
+        (candidate) => !candidateAlreadyExistsInGenre(candidate)
+      ).length;
+      reviveAllButton.disabled = locked || restorableCount === 0;
+      reviveAllButton.title = restorableCount === 0
+        ? "すべての選択済み候補が復活中です"
+        : `未復活の${restorableCount}件をルーレット候補へ戻す`;
+
       if (selectedItems.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty-state";
@@ -1448,9 +1504,12 @@
 
         values.forEach((candidate) => {
           const item = document.createElement("li");
+          const alreadyRevived = candidateAlreadyExistsInGenre(candidate);
 
           const row = document.createElement("div");
-          row.className = "selected-candidate-row";
+          row.className = alreadyRevived
+            ? "selected-candidate-row is-revived"
+            : "selected-candidate-row";
 
           const name = document.createElement("span");
           name.className = "selected-candidate-name";
@@ -1463,12 +1522,16 @@
           reviveButton.className = "revive-button";
           reviveButton.type = "button";
           reviveButton.textContent = "復活";
-          reviveButton.disabled = isFilterLocked();
+          reviveButton.disabled = locked || alreadyRevived;
           reviveButton.setAttribute(
             "aria-label",
-            `${formatResult(candidate)}を選択済み一覧に残したままルーレット候補へ戻す`
+            alreadyRevived
+              ? `${formatResult(candidate)}はすでにルーレット候補へ復活しています`
+              : `${formatResult(candidate)}を選択済み一覧に残したままルーレット候補へ戻す`
           );
-          reviveButton.title = "選択済みの記録を残したまま候補へ戻す";
+          reviveButton.title = alreadyRevived
+            ? "すでに復活中です"
+            : "選択済みの記録を残したまま候補へ戻す";
           reviveButton.addEventListener("click", () => reviveSelectedItem(candidate));
 
           row.append(name, reviveButton);
@@ -1938,6 +2001,45 @@
         alreadyExists
           ? `「${formatResult(candidate)}」はすでに復活中です。選択済み一覧には残しています。`
           : `「${formatResult(candidate)}」を候補へ復活させました。選択済み一覧には記録を残しています。`,
+        "success"
+      );
+    }
+
+    function reviveAllSelectedItems() {
+      if (isFilterLocked() || selectedItems.length === 0) {
+        return;
+      }
+
+      let revivedCount = 0;
+
+      selectedItems.forEach((candidate) => {
+        if (candidateAlreadyExistsInGenre(candidate)) {
+          return;
+        }
+
+        const targetGroup = findRevivalTargetGroup(candidate);
+        const values = normalizeItems(targetGroup.itemsText);
+        values.push(candidate.value);
+        targetGroup.itemsText = values.join("\n");
+        revivedCount += 1;
+      });
+
+      if (revivedCount === 0) {
+        renderSelectedItems();
+        setMessage("すべての選択済み候補がすでに復活中です。");
+        return;
+      }
+
+      allCandidates = buildCandidates();
+      syncFilterSettings();
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderInputGroups();
+      renderState();
+      drawWheel(0);
+      setMessage(
+        `${revivedCount}件の選択済み候補を一括で復活させました。選択済み一覧には記録を残しています。`,
         "success"
       );
     }
@@ -2530,6 +2632,7 @@
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
+    reviveAllButton.addEventListener("click", reviveAllSelectedItems);
     applyButton.addEventListener("click", applyItems);
     resetButton.addEventListener("click", resetAll);
 
