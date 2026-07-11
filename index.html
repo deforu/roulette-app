@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ルーレット</title>
+  <title>ジャンル付きルーレット v2</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -34,6 +34,7 @@
     }
 
     button,
+    input,
     textarea {
       font: inherit;
     }
@@ -42,13 +43,15 @@
       cursor: pointer;
     }
 
-    button:disabled {
+    button:disabled,
+    input:disabled,
+    textarea:disabled {
       cursor: not-allowed;
       opacity: 0.52;
     }
 
     .page {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1240px, calc(100% - 32px));
       margin: 0 auto;
       padding: 40px 0 56px;
     }
@@ -63,6 +66,17 @@
       letter-spacing: 0.02em;
     }
 
+    .version-note {
+      display: inline-flex;
+      margin: 0 0 10px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: var(--primary-dark);
+      background: rgba(91, 91, 214, 0.10);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .header p {
       margin: 0;
       color: var(--muted);
@@ -71,7 +85,7 @@
 
     .main-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
+      grid-template-columns: minmax(0, 1fr) minmax(390px, 440px);
       gap: 24px;
       align-items: start;
     }
@@ -200,7 +214,7 @@
     }
 
     .settings-panel,
-    .candidate-panel {
+    .genre-panel {
       padding: 22px;
     }
 
@@ -220,6 +234,7 @@
     .count-badge {
       min-width: 34px;
       height: 28px;
+      padding: 0 9px;
       display: grid;
       place-items: center;
       border-radius: 999px;
@@ -229,19 +244,100 @@
       font-weight: 800;
     }
 
+    .input-groups {
+      display: grid;
+      gap: 14px;
+    }
+
+    .input-group {
+      display: grid;
+      grid-template-columns: 38px minmax(110px, 0.72fr) minmax(180px, 1.45fr);
+      gap: 10px;
+      align-items: stretch;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(247, 248, 252, 0.82);
+    }
+
+    .group-controls {
+      display: grid;
+      align-content: start;
+      gap: 7px;
+      padding-top: 25px;
+    }
+
+    .group-icon-button {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      color: var(--primary);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .group-icon-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: rgba(91, 91, 214, 0.5);
+      background: #f4f3ff;
+    }
+
+    .group-icon-button.remove {
+      color: var(--danger);
+    }
+
+    .group-icon-button.remove:not(:disabled):hover {
+      border-color: #efc2bf;
+      background: #fff5f4;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 20px;
+      margin-bottom: 5px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #4f5668;
+    }
+
+    .optional {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    input[type="text"],
     textarea {
       width: 100%;
-      min-height: 180px;
-      resize: vertical;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 11px 12px;
       color: var(--text);
       background: #ffffff;
-      line-height: 1.7;
       outline: none;
     }
 
+    input[type="text"] {
+      min-height: 44px;
+    }
+
+    textarea {
+      min-height: 128px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    input[type="text"]:focus,
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(91, 91, 214, 0.12);
@@ -271,16 +367,12 @@
       border: 1px solid #f3cfcd;
     }
 
-    .candidate-list,
-    .selected-list {
+    .genre-list {
       list-style: none;
       padding: 0;
       margin: 0;
       display: grid;
       gap: 9px;
-    }
-
-    .candidate-list {
       max-height: 260px;
       overflow-y: auto;
       padding-right: 4px;
@@ -312,8 +404,17 @@
 
     .item-text {
       min-width: 0;
+      flex: 1;
       overflow-wrap: anywhere;
       line-height: 1.45;
+    }
+
+    .genre-item-count {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
     .selected-section {
@@ -334,18 +435,39 @@
       font-size: 22px;
     }
 
-    .selected-list {
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    .selected-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
     }
 
-    .selected-list .list-item {
-      border-color: #cfe6dc;
+    .selected-group {
+      min-width: 0;
+      padding: 16px 17px;
+      border: 1px solid #cfe6dc;
+      border-radius: 15px;
       background: #f5fbf8;
     }
 
-    .selected-list .item-number {
-      color: #ffffff;
-      background: var(--success);
+    .selected-group h3 {
+      margin: 0 0 10px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid #d8ebe2;
+      color: #1f6f50;
+      font-size: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    .selected-candidates {
+      margin: 0;
+      padding-left: 21px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .selected-candidates li {
+      line-height: 1.5;
+      overflow-wrap: anywhere;
     }
 
     .empty-state {
@@ -374,25 +496,44 @@
       color: var(--success);
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 980px) {
       .main-grid {
         grid-template-columns: 1fr;
       }
 
       .sidebar {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .input-group {
+        grid-template-columns: 38px 1fr;
+      }
+
+      .group-controls {
+        grid-row: 1 / 3;
+      }
+
+      .genre-field,
+      .candidates-field {
+        grid-column: 2;
       }
     }
 
     @media (max-width: 640px) {
       .page {
-        width: min(100% - 20px, 1180px);
+        width: min(100% - 20px, 1240px);
         padding-top: 24px;
       }
 
       .roulette-panel,
       .settings-panel,
-      .candidate-panel,
+      .genre-panel,
       .selected-section {
         padding: 18px;
         border-radius: 18px;
@@ -406,10 +547,6 @@
         grid-column: 1 / -1;
       }
 
-      .sidebar {
-        grid-template-columns: 1fr;
-      }
-
       .settings-actions {
         grid-template-columns: 1fr;
       }
@@ -420,7 +557,8 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <p>ルーレットを回し、結果を「決定」すると候補から削除されます。「保留」では候補を残したまま再抽選できます。</p>
+      <div class="version-note">ジャンル入力対応版</div>
+      <p>ジャンルごとに候補を登録できます。結果を「決定」すると候補から削除され、「保留」では候補を残したまま再抽選できます。</p>
     </header>
 
     <div class="main-grid">
@@ -450,20 +588,20 @@
           <div class="panel-title">
             <h2>候補を編集</h2>
           </div>
-          <textarea id="itemsInput" aria-label="ルーレット候補"></textarea>
-          <p class="helper">1行につき1つの候補を入力してください。空行と重複項目は自動で除外します。</p>
+          <div id="inputGroups" class="input-groups"></div>
+          <p class="helper">ジャンルは任意です。候補は1行につき1件入力してください。「＋」で入力欄を追加し、「－」で削除できます。</p>
           <div class="settings-actions">
             <button id="applyButton" class="button button-apply" type="button">候補を反映</button>
             <button id="resetButton" class="button button-reset" type="button">初期化</button>
           </div>
         </section>
 
-        <section class="panel candidate-panel">
+        <section class="panel genre-panel">
           <div class="panel-title">
-            <h2>現在の候補</h2>
-            <span id="candidateCount" class="count-badge">0</span>
+            <h2>現在のジャンル</h2>
+            <span id="genreCount" class="count-badge" aria-label="ジャンル数">0</span>
           </div>
-          <ul id="candidateList" class="candidate-list"></ul>
+          <ul id="genreList" class="genre-list"></ul>
         </section>
       </aside>
     </div>
@@ -471,20 +609,18 @@
     <section class="panel selected-section">
       <div class="selected-header">
         <h2>選択済み</h2>
-        <span id="selectedCount" class="count-badge">0</span>
+        <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
       </div>
-      <ul id="selectedList" class="selected-list"></ul>
+      <div id="selectedGroups" class="selected-groups"></div>
     </section>
   </main>
 
   <script>
-    const DEFAULT_ITEMS = [
-      "A案",
-      "B案",
-      "C案",
-      "D案",
-      "E案",
-      "F案"
+    const DEFAULT_GROUPS = [
+      {
+        genre: "",
+        itemsText: "A案\nB案\nC案\nD案\nE案\nF案"
+      }
     ];
 
     const COLORS = [
@@ -502,10 +638,10 @@
 
     const canvas = document.getElementById("wheelCanvas");
     const context = canvas.getContext("2d");
-    const itemsInput = document.getElementById("itemsInput");
-    const candidateList = document.getElementById("candidateList");
-    const selectedList = document.getElementById("selectedList");
-    const candidateCount = document.getElementById("candidateCount");
+    const inputGroupsContainer = document.getElementById("inputGroups");
+    const genreList = document.getElementById("genreList");
+    const selectedGroupsContainer = document.getElementById("selectedGroups");
+    const genreCount = document.getElementById("genreCount");
     const selectedCount = document.getElementById("selectedCount");
     const resultValue = document.getElementById("resultValue");
     const message = document.getElementById("message");
@@ -515,13 +651,26 @@
     const applyButton = document.getElementById("applyButton");
     const resetButton = document.getElementById("resetButton");
 
-    let candidates = [...DEFAULT_ITEMS];
+    let groupSequence = 0;
+    let inputGroups = createDefaultGroups();
+    let candidates = [];
     let selectedItems = [];
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
 
-    itemsInput.value = candidates.join("\n");
+    function createGroup(genre = "", itemsText = "") {
+      groupSequence += 1;
+      return {
+        id: `group-${groupSequence}`,
+        genre,
+        itemsText
+      };
+    }
+
+    function createDefaultGroups() {
+      return DEFAULT_GROUPS.map((group) => createGroup(group.genre, group.itemsText));
+    }
 
     function normalizeItems(text) {
       const unique = new Set();
@@ -538,6 +687,42 @@
         });
     }
 
+    function buildCandidates() {
+      const pairKeys = new Set();
+      const nextCandidates = [];
+
+      inputGroups.forEach((group) => {
+        const genre = group.genre.trim();
+        const items = normalizeItems(group.itemsText);
+        group.genre = genre;
+        group.itemsText = items.join("\n");
+
+        items.forEach((value) => {
+          const pairKey = `${genre}\u0000${value}`;
+          if (pairKeys.has(pairKey)) {
+            return;
+          }
+
+          pairKeys.add(pairKey);
+          nextCandidates.push({
+            groupId: group.id,
+            genre,
+            value
+          });
+        });
+      });
+
+      return nextCandidates;
+    }
+
+    function formatResult(candidate) {
+      return candidate.genre ? `${candidate.genre}：${candidate.value}` : candidate.value;
+    }
+
+    function displayGenre(genre) {
+      return genre || "ジャンルなし";
+    }
+
     function setMessage(text = "", type = "") {
       message.textContent = text;
       message.className = type ? `message ${type}` : "message";
@@ -550,18 +735,111 @@
       holdButton.disabled = true;
     }
 
-    function renderList(container, values, emptyText) {
-      container.innerHTML = "";
+    function setInputControlsDisabled(disabled) {
+      inputGroupsContainer
+        .querySelectorAll("input, textarea, button")
+        .forEach((element) => {
+          element.disabled = disabled || (element.classList.contains("remove") && inputGroups.length === 1);
+        });
+    }
 
-      if (values.length === 0) {
+    function renderInputGroups() {
+      inputGroupsContainer.innerHTML = "";
+
+      inputGroups.forEach((group, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "input-group";
+        wrapper.dataset.groupId = group.id;
+
+        const controls = document.createElement("div");
+        controls.className = "group-controls";
+
+        const addButton = document.createElement("button");
+        addButton.className = "group-icon-button add";
+        addButton.type = "button";
+        addButton.textContent = "+";
+        addButton.dataset.action = "add";
+        addButton.setAttribute("aria-label", `${index + 1}番目の下に入力グループを追加`);
+        addButton.title = "この下に入力欄を追加";
+
+        const removeButton = document.createElement("button");
+        removeButton.className = "group-icon-button remove";
+        removeButton.type = "button";
+        removeButton.textContent = "−";
+        removeButton.dataset.action = "remove";
+        removeButton.disabled = inputGroups.length === 1;
+        removeButton.setAttribute("aria-label", `${index + 1}番目の入力グループを削除`);
+        removeButton.title = inputGroups.length === 1 ? "入力欄は1つ以上必要です" : "この入力欄を削除";
+
+        controls.append(addButton, removeButton);
+
+        const genreField = document.createElement("div");
+        genreField.className = "field genre-field";
+
+        const genreLabel = document.createElement("label");
+        genreLabel.htmlFor = `genre-${group.id}`;
+        genreLabel.innerHTML = `ジャンル <span class="optional">任意</span>`;
+
+        const genreInput = document.createElement("input");
+        genreInput.id = `genre-${group.id}`;
+        genreInput.type = "text";
+        genreInput.value = group.genre;
+        genreInput.placeholder = "例：食べ物";
+        genreInput.dataset.field = "genre";
+        genreInput.autocomplete = "off";
+
+        genreField.append(genreLabel, genreInput);
+
+        const candidatesField = document.createElement("div");
+        candidatesField.className = "field candidates-field";
+
+        const candidatesLabel = document.createElement("label");
+        candidatesLabel.htmlFor = `items-${group.id}`;
+        candidatesLabel.textContent = "候補";
+
+        const candidatesInput = document.createElement("textarea");
+        candidatesInput.id = `items-${group.id}`;
+        candidatesInput.value = group.itemsText;
+        candidatesInput.placeholder = "寿司\nカレー\nラーメン";
+        candidatesInput.dataset.field = "itemsText";
+        candidatesInput.setAttribute("aria-label", `${index + 1}番目の候補`);
+
+        candidatesField.append(candidatesLabel, candidatesInput);
+        wrapper.append(controls, genreField, candidatesField);
+        inputGroupsContainer.appendChild(wrapper);
+      });
+
+      setInputControlsDisabled(spinning);
+    }
+
+    function aggregateByGenre(values) {
+      const groups = new Map();
+
+      values.forEach((candidate) => {
+        const key = candidate.genre;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key).push(candidate);
+      });
+
+      return groups;
+    }
+
+    function renderGenres() {
+      genreList.innerHTML = "";
+      const genreGroups = aggregateByGenre(candidates);
+      genreCount.textContent = genreGroups.size;
+
+      if (genreGroups.size === 0) {
         const empty = document.createElement("li");
         empty.className = "empty-state";
-        empty.textContent = emptyText;
-        container.appendChild(empty);
+        empty.textContent = "ジャンルがありません";
+        genreList.appendChild(empty);
         return;
       }
 
-      values.forEach((value, index) => {
+      Array.from(genreGroups.entries()).forEach(([genre, values], index) => {
         const item = document.createElement("li");
         item.className = "list-item";
 
@@ -571,18 +849,55 @@
 
         const text = document.createElement("span");
         text.className = "item-text";
-        text.textContent = value;
+        text.textContent = displayGenre(genre);
 
-        item.append(number, text);
-        container.appendChild(item);
+        const count = document.createElement("span");
+        count.className = "genre-item-count";
+        count.textContent = `${values.length}件`;
+
+        item.append(number, text, count);
+        genreList.appendChild(item);
       });
     }
 
-    function renderLists() {
-      renderList(candidateList, candidates, "候補がありません");
-      renderList(selectedList, selectedItems, "決定した項目がここに表示されます");
-      candidateCount.textContent = candidates.length;
+    function renderSelectedItems() {
+      selectedGroupsContainer.innerHTML = "";
       selectedCount.textContent = selectedItems.length;
+
+      if (selectedItems.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = "決定した項目がここに表示されます";
+        selectedGroupsContainer.appendChild(empty);
+        return;
+      }
+
+      const genreGroups = aggregateByGenre(selectedItems);
+
+      genreGroups.forEach((values, genre) => {
+        const section = document.createElement("section");
+        section.className = "selected-group";
+
+        const title = document.createElement("h3");
+        title.textContent = displayGenre(genre);
+
+        const list = document.createElement("ul");
+        list.className = "selected-candidates";
+
+        values.forEach((candidate) => {
+          const item = document.createElement("li");
+          item.textContent = candidate.value;
+          list.appendChild(item);
+        });
+
+        section.append(title, list);
+        selectedGroupsContainer.appendChild(section);
+      });
+    }
+
+    function renderState() {
+      renderGenres();
+      renderSelectedItems();
       spinButton.disabled = spinning || candidates.length === 0;
     }
 
@@ -626,7 +941,7 @@
 
       const arc = (Math.PI * 2) / candidates.length;
 
-      candidates.forEach((item, index) => {
+      candidates.forEach((candidate, index) => {
         const startAngle = index * arc - Math.PI / 2;
         const endAngle = startAngle + arc;
 
@@ -649,11 +964,11 @@
         context.textAlign = "center";
         context.textBaseline = "middle";
         const maxTextWidth = Math.max(110, arc * radius * 0.78);
-        const fontSize = fitText(item, maxTextWidth, candidates.length > 12 ? 24 : 31);
+        const fontSize = fitText(candidate.value, maxTextWidth, candidates.length > 12 ? 24 : 31);
         context.font = `700 ${fontSize}px sans-serif`;
         context.shadowColor = "rgba(0, 0, 0, 0.25)";
         context.shadowBlur = 5;
-        context.fillText(item, 0, 0, maxTextWidth);
+        context.fillText(candidate.value, 0, 0, maxTextWidth);
         context.restore();
       });
 
@@ -683,7 +998,7 @@
       spinButton.disabled = true;
       applyButton.disabled = true;
       resetButton.disabled = true;
-      itemsInput.disabled = true;
+      setInputControlsDisabled(true);
 
       const chosenIndex = Math.floor(Math.random() * candidates.length);
       const arc = (Math.PI * 2) / candidates.length;
@@ -711,18 +1026,32 @@
 
         currentRotation = targetRotation;
         currentResultIndex = chosenIndex;
-        resultValue.textContent = candidates[chosenIndex];
+        resultValue.textContent = formatResult(candidates[chosenIndex]);
         decisionButton.disabled = false;
         holdButton.disabled = false;
         spinning = false;
         spinButton.disabled = false;
         applyButton.disabled = false;
         resetButton.disabled = false;
-        itemsInput.disabled = false;
+        setInputControlsDisabled(false);
         setMessage("「決定」または「保留」を選んでください。");
       }
 
       requestAnimationFrame(animate);
+    }
+
+    function removeCandidateFromInput(candidate) {
+      const group = inputGroups.find((item) => item.id === candidate.groupId);
+      if (!group) {
+        return;
+      }
+
+      const values = normalizeItems(group.itemsText);
+      const removeIndex = values.indexOf(candidate.value);
+      if (removeIndex !== -1) {
+        values.splice(removeIndex, 1);
+      }
+      group.itemsText = values.join("\n");
     }
 
     function decideResult() {
@@ -732,12 +1061,13 @@
 
       const [decided] = candidates.splice(currentResultIndex, 1);
       selectedItems.push(decided);
-      itemsInput.value = candidates.join("\n");
+      removeCandidateFromInput(decided);
       currentRotation = 0;
       resetResult();
-      renderLists();
+      renderInputGroups();
+      renderState();
       drawWheel(0);
-      setMessage(`「${decided}」を選択済みに移動しました。`, "success");
+      setMessage(`「${formatResult(decided)}」を選択済みに移動しました。`, "success");
     }
 
     function holdResult() {
@@ -747,7 +1077,7 @@
 
       const heldItem = candidates[currentResultIndex];
       resetResult();
-      setMessage(`「${heldItem}」は候補に残しました。`);
+      setMessage(`「${formatResult(heldItem)}」は候補に残しました。`);
     }
 
     function applyItems() {
@@ -755,7 +1085,7 @@
         return;
       }
 
-      const nextCandidates = normalizeItems(itemsInput.value);
+      const nextCandidates = buildCandidates();
 
       if (nextCandidates.length === 0) {
         setMessage("候補を1件以上入力してください。", "error");
@@ -765,21 +1095,63 @@
       candidates = nextCandidates;
       currentRotation = 0;
       resetResult();
-      renderLists();
+      renderInputGroups();
+      renderState();
       drawWheel(0);
-      setMessage("候補をルーレットに反映しました。", "success");
+      setMessage("ジャンルと候補をルーレットに反映しました。", "success");
     }
 
     function resetAll() {
-      candidates = [...DEFAULT_ITEMS];
+      inputGroups = createDefaultGroups();
+      candidates = buildCandidates();
       selectedItems = [];
       currentRotation = 0;
-      itemsInput.value = candidates.join("\n");
       resetResult();
-      renderLists();
+      renderInputGroups();
+      renderState();
       drawWheel(0);
       setMessage("初期状態に戻しました。");
     }
+
+    inputGroupsContainer.addEventListener("input", (event) => {
+      const wrapper = event.target.closest(".input-group");
+      const field = event.target.dataset.field;
+      if (!wrapper || !field) {
+        return;
+      }
+
+      const group = inputGroups.find((item) => item.id === wrapper.dataset.groupId);
+      if (group) {
+        group[field] = event.target.value;
+      }
+    });
+
+    inputGroupsContainer.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      const wrapper = event.target.closest(".input-group");
+      if (!button || !wrapper || spinning) {
+        return;
+      }
+
+      const groupIndex = inputGroups.findIndex((item) => item.id === wrapper.dataset.groupId);
+      if (groupIndex === -1) {
+        return;
+      }
+
+      if (button.dataset.action === "add") {
+        inputGroups.splice(groupIndex + 1, 0, createGroup());
+        renderInputGroups();
+        const addedGroup = inputGroups[groupIndex + 1];
+        document.getElementById(`genre-${addedGroup.id}`)?.focus();
+        return;
+      }
+
+      if (button.dataset.action === "remove" && inputGroups.length > 1) {
+        inputGroups.splice(groupIndex, 1);
+        renderInputGroups();
+        setMessage("入力グループを削除しました。候補へ反映するには「候補を反映」を押してください。");
+      }
+    });
 
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
@@ -787,7 +1159,9 @@
     applyButton.addEventListener("click", applyItems);
     resetButton.addEventListener("click", resetAll);
 
-    renderLists();
+    candidates = buildCandidates();
+    renderInputGroups();
+    renderState();
     drawWheel();
   </script>
 </body>
