@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CSV保存・復元対応ルーレット v8</title>
+  <title>CSV・公開スプレッドシート対応ルーレット v9</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -327,6 +327,7 @@
     }
 
     input[type="text"],
+    input[type="url"],
     textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -337,7 +338,8 @@
       outline: none;
     }
 
-    input[type="text"] {
+    input[type="text"],
+    input[type="url"] {
       min-height: 44px;
     }
 
@@ -348,6 +350,7 @@
     }
 
     input[type="text"]:focus,
+    input[type="url"]:focus,
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(91, 91, 214, 0.12);
@@ -754,6 +757,87 @@
       line-height: 1.5;
     }
 
+    .sheet-import-panel[hidden],
+    .import-options[hidden] {
+      display: none;
+    }
+
+    .sheet-url-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .sheet-url-field label {
+      color: #4f5668;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .sheet-url-field input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      color: var(--text);
+      background: #ffffff;
+      outline: none;
+    }
+
+    .sheet-import-help {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .sheet-import-actions {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .sheet-back-button,
+    .sheet-load-button {
+      min-height: 44px;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 800;
+    }
+
+    .sheet-back-button {
+      border: 1px solid var(--line);
+      color: #4f5668;
+      background: #ffffff;
+    }
+
+    .sheet-load-button {
+      border: 0;
+      color: #ffffff;
+      background: var(--primary);
+    }
+
+    .sheet-load-button:not(:disabled):hover {
+      background: var(--primary-dark);
+    }
+
+    .sheet-import-status {
+      min-height: 22px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .sheet-import-status.error {
+      color: var(--danger);
+    }
+
+    .sheet-import-status.loading {
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+
     .csv-format-note {
       margin-top: 16px;
       padding: 12px 14px;
@@ -831,8 +915,8 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <div class="version-note">CSV保存・復元対応版</div>
-      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。CSVで設定全体を保存・復元できます。</p>
+      <div class="version-note">CSV・公開スプレッドシート対応版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。CSVで設定全体を保存・復元し、ウェブに公開したGoogleスプレッドシートからも読み込めます。</p>
     </header>
 
     <div class="main-grid">
@@ -907,15 +991,33 @@
         <button id="closeImportModalButton" class="modal-close" type="button" aria-label="閉じる">×</button>
       </div>
       <p class="modal-description">インポートすると、現在の候補・ジャンル設定・選択済み一覧をCSVの内容で置き換えます。</p>
-      <div class="import-options">
+      <div id="importOptions" class="import-options">
         <button id="chooseCsvButton" class="import-option" type="button">
           <strong>CSVファイルをインポート</strong>
           <span>候補、ジャンル、比率、表示状態、選択済み状態を読み込みます。</span>
         </button>
-        <button class="import-option" type="button" disabled>
+        <button id="chooseSpreadsheetButton" class="import-option" type="button">
           <strong>公開スプレッドシートを読み込む</strong>
-          <span>この機能は今後の実装対象です。</span>
+          <span>Googleスプレッドシートの「ウェブに公開」URLからCSVデータを取得します。</span>
         </button>
+      </div>
+      <div id="sheetImportPanel" class="sheet-import-panel" hidden>
+        <div class="sheet-url-field">
+          <label for="sheetUrlInput">ウェブに公開したスプレッドシートURL</label>
+          <input
+            id="sheetUrlInput"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            placeholder="https://docs.google.com/spreadsheets/d/e/.../pubhtml"
+          />
+        </div>
+        <p class="sheet-import-help">Googleスプレッドシートで「ファイル → 共有 → ウェブに公開」を開き、対象シートを公開して発行されたURLを入力してください。通常の編集URL・共有URLは読み込めません。</p>
+        <div class="sheet-import-actions">
+          <button id="backToImportOptionsButton" class="sheet-back-button" type="button">戻る</button>
+          <button id="loadSpreadsheetButton" class="sheet-load-button" type="button">読み込んでインポート</button>
+        </div>
+        <div id="sheetImportStatus" class="sheet-import-status" aria-live="polite"></div>
       </div>
       <div class="csv-format-note">
         必須列：候補<br>
@@ -984,7 +1086,14 @@
     const exportButton = document.getElementById("exportButton");
     const importModal = document.getElementById("importModal");
     const closeImportModalButton = document.getElementById("closeImportModalButton");
+    const importOptions = document.getElementById("importOptions");
     const chooseCsvButton = document.getElementById("chooseCsvButton");
+    const chooseSpreadsheetButton = document.getElementById("chooseSpreadsheetButton");
+    const sheetImportPanel = document.getElementById("sheetImportPanel");
+    const sheetUrlInput = document.getElementById("sheetUrlInput");
+    const backToImportOptionsButton = document.getElementById("backToImportOptionsButton");
+    const loadSpreadsheetButton = document.getElementById("loadSpreadsheetButton");
+    const sheetImportStatus = document.getElementById("sheetImportStatus");
     const csvFileInput = document.getElementById("csvFileInput");
 
     let groupSequence = 0;
@@ -996,6 +1105,8 @@
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
+    let sheetImporting = false;
+    let sheetImportController = null;
 
     function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
@@ -1894,16 +2005,132 @@
       setMessage(`${rows.length - 1}件のデータをCSVで出力しました。`, "success");
     }
 
+    function setSheetImportStatus(text = "", type = "") {
+      sheetImportStatus.textContent = text;
+      sheetImportStatus.className = type
+        ? `sheet-import-status ${type}`
+        : "sheet-import-status";
+    }
+
+    function showImportOptions() {
+      importOptions.hidden = false;
+      sheetImportPanel.hidden = true;
+      setSheetImportStatus();
+    }
+
+    function showSheetImportPanel() {
+      importOptions.hidden = true;
+      sheetImportPanel.hidden = false;
+      setSheetImportStatus();
+      sheetUrlInput.focus();
+    }
+
+    function setSheetImporting(importing) {
+      sheetImporting = importing;
+      sheetUrlInput.disabled = importing;
+      backToImportOptionsButton.disabled = importing;
+      loadSpreadsheetButton.disabled = importing;
+      closeImportModalButton.disabled = importing;
+      loadSpreadsheetButton.textContent = importing
+        ? "読み込み中…"
+        : "読み込んでインポート";
+    }
+
+    function validatePublishedSpreadsheetUrl(value) {
+      const trimmedValue = String(value ?? "").trim();
+      if (!trimmedValue) {
+        throw new Error("スプレッドシートURLを入力してください。");
+      }
+
+      let url;
+      try {
+        url = new URL(trimmedValue);
+      } catch {
+        throw new Error("URLの形式が正しくありません。");
+      }
+
+      if (url.protocol !== "https:" || url.hostname !== "docs.google.com") {
+        throw new Error("docs.google.com のHTTPS URLを入力してください。");
+      }
+
+      const publishedPathPattern = /^\/spreadsheets\/d\/e\/[^/]+\/(?:pub|pubhtml)\/?$/;
+      if (!publishedPathPattern.test(url.pathname)) {
+        if (/^\/spreadsheets\/d\/[^/]+\/(?:edit|view)/.test(url.pathname)) {
+          throw new Error("通常の編集URL・共有URLではなく、「ウェブに公開」で発行されたURLを入力してください。");
+        }
+        throw new Error("Googleスプレッドシートの公開URLとして認識できません。");
+      }
+
+      return url.toString();
+    }
+
+    async function importPublishedSpreadsheet() {
+      if (sheetImporting || isFilterLocked()) {
+        return;
+      }
+
+      try {
+        const publishedUrl = validatePublishedSpreadsheetUrl(sheetUrlInput.value);
+        setSheetImporting(true);
+        setSheetImportStatus("公開スプレッドシートを読み込んでいます…", "loading");
+
+        sheetImportController = new AbortController();
+        const endpoint = `/api/import-sheet?url=${encodeURIComponent(publishedUrl)}`;
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: { Accept: "text/csv" },
+          cache: "no-store",
+          signal: sheetImportController.signal
+        });
+
+        const responseText = await response.text();
+        if (!response.ok) {
+          let errorMessage = "公開スプレッドシートの読み込みに失敗しました。";
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData?.error) {
+              errorMessage = errorData.error;
+            }
+          } catch {
+            if (responseText.trim()) {
+              errorMessage = responseText.trim();
+            }
+          }
+          throw new Error(errorMessage);
+        }
+
+        importCsvText(responseText, "公開スプレッドシート");
+        closeImportModal();
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "公開スプレッドシートの読み込みに失敗しました。";
+        setSheetImportStatus(errorMessage, "error");
+        setMessage(errorMessage, "error");
+      } finally {
+        sheetImportController = null;
+        setSheetImporting(false);
+      }
+    }
+
     function openImportModal() {
       if (isFilterLocked()) {
         return;
       }
+      showImportOptions();
       importModal.hidden = false;
       closeImportModalButton.focus();
     }
 
     function closeImportModal() {
+      if (sheetImporting) {
+        sheetImportController?.abort();
+      }
       importModal.hidden = true;
+      showImportOptions();
       importButton.focus();
     }
 
@@ -2089,13 +2316,22 @@
       closeImportModal();
       csvFileInput.click();
     });
+    chooseSpreadsheetButton.addEventListener("click", showSheetImportPanel);
+    backToImportOptionsButton.addEventListener("click", showImportOptions);
+    loadSpreadsheetButton.addEventListener("click", importPublishedSpreadsheet);
+    sheetUrlInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        importPublishedSpreadsheet();
+      }
+    });
     importModal.addEventListener("click", (event) => {
-      if (event.target === importModal) {
+      if (event.target === importModal && !sheetImporting) {
         closeImportModal();
       }
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !importModal.hidden) {
+      if (event.key === "Escape" && !importModal.hidden && !sheetImporting) {
         closeImportModal();
       }
     });
