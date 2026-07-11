@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>追加入力で加速できるルーレット v19</title>
+  <title>追加入力で加速できるルーレット v21</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -857,7 +857,7 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">追加入力加速・候補復活・比率切替・CSV保存・サウンド対応版</div>
+      <div class="version-note">追加入力加速・履歴保持型候補復活・比率切替・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
@@ -1171,6 +1171,42 @@
       return candidate.genre ? `${candidate.genre}：${candidate.value}` : candidate.value;
     }
 
+    function getSelectedItemKey(candidate) {
+      return `${normalizeGenreName(candidate.genre)}\u0000${String(candidate.value ?? "").trim()}`;
+    }
+
+    function findSelectedItem(candidate) {
+      const key = getSelectedItemKey(candidate);
+      return selectedItems.find((item) => getSelectedItemKey(item) === key) ?? null;
+    }
+
+    function getSelectedTotalCount() {
+      return selectedItems.reduce(
+        (total, item) => total + Math.max(1, Number(item.count) || 1),
+        0
+      );
+    }
+
+    function addSelectedItem(candidate, count = 1) {
+      const increment = Math.max(1, Math.floor(Number(count) || 1));
+      const existing = findSelectedItem(candidate);
+
+      if (existing) {
+        existing.count = Math.max(1, Number(existing.count) || 1) + increment;
+        return existing;
+      }
+
+      const setting = getFilterSetting(candidate.filterKey);
+      const selectedItem = {
+        ...candidate,
+        count: increment,
+        savedRatio: setting.ratio,
+        savedVisible: setting.visible
+      };
+      selectedItems.push(selectedItem);
+      return selectedItem;
+    }
+
     function setMessage(text = "", type = "") {
       message.textContent = text;
       message.className = type ? `message ${type}` : "message";
@@ -1388,7 +1424,7 @@
 
     function renderSelectedItems() {
       selectedGroupsContainer.innerHTML = "";
-      selectedCount.textContent = selectedItems.length;
+      selectedCount.textContent = getSelectedTotalCount();
 
       if (selectedItems.length === 0) {
         const empty = document.createElement("div");
@@ -1418,7 +1454,10 @@
 
           const name = document.createElement("span");
           name.className = "selected-candidate-name";
-          name.textContent = candidate.value;
+          const selectionCount = Math.max(1, Number(candidate.count) || 1);
+          name.textContent = selectionCount > 1
+            ? `${candidate.value}（${selectionCount}回）`
+            : candidate.value;
 
           const reviveButton = document.createElement("button");
           reviveButton.className = "revive-button";
@@ -1427,9 +1466,9 @@
           reviveButton.disabled = isFilterLocked();
           reviveButton.setAttribute(
             "aria-label",
-            `${formatResult(candidate)}をルーレット候補へ戻す`
+            `${formatResult(candidate)}を選択済み一覧に残したままルーレット候補へ戻す`
           );
-          reviveButton.title = "選択前の候補へ戻す";
+          reviveButton.title = "選択済みの記録を残したまま候補へ戻す";
           reviveButton.addEventListener("click", () => reviveSelectedItem(candidate));
 
           row.append(name, reviveButton);
@@ -1826,12 +1865,7 @@
         allCandidates.splice(allCandidateIndex, 1);
       }
 
-      const decidedSetting = getFilterSetting(decided.filterKey);
-      selectedItems.push({
-        ...decided,
-        savedRatio: decidedSetting.ratio,
-        savedVisible: decidedSetting.visible
-      });
+      const selectedRecord = addSelectedItem(decided);
       removeCandidateFromInput(decided);
       syncFilterSettings();
       updateVisibleCandidates();
@@ -1840,7 +1874,12 @@
       renderInputGroups();
       renderState();
       drawWheel(0);
-      setMessage(`「${formatResult(decided)}」を選択済みに移動しました。`, "success");
+      setMessage(
+        selectedRecord.count > 1
+          ? `「${formatResult(decided)}」の選択回数が${selectedRecord.count}回になりました。`
+          : `「${formatResult(decided)}」を選択済みに追加しました。`,
+        "success"
+      );
     }
 
     function findRevivalTargetGroup(candidate) {
@@ -1874,8 +1913,7 @@
         return;
       }
 
-      const selectedIndex = selectedItems.indexOf(candidate);
-      if (selectedIndex === -1) {
+      if (!findSelectedItem(candidate)) {
         return;
       }
 
@@ -1887,7 +1925,6 @@
         targetGroup.itemsText = values.join("\n");
       }
 
-      selectedItems.splice(selectedIndex, 1);
       allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
@@ -1899,8 +1936,8 @@
 
       setMessage(
         alreadyExists
-          ? `「${formatResult(candidate)}」は候補に登録済みのため、選択済み一覧から外しました。`
-          : `「${formatResult(candidate)}」を候補へ復活させました。`,
+          ? `「${formatResult(candidate)}」はすでに復活中です。選択済み一覧には残しています。`
+          : `「${formatResult(candidate)}」を候補へ復活させました。選択済み一覧には記録を残しています。`,
         "success"
       );
     }
@@ -2046,6 +2083,7 @@
       ratio: ["ジャンル比率", "比率", "ratio", "genreratio", "genre_ratio"],
       visible: ["ジャンル表示", "表示状態", "表示", "visible", "visibility"],
       selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"],
+      selectionCount: ["選択回数", "重複数", "回数", "selectedcount", "selectioncount", "selected_count", "selection_count"],
       ratioEnabled: ["比率設定", "比率有効", "比率モード", "ratioenabled", "ratio_enabled"]
     };
 
@@ -2135,6 +2173,19 @@
       return Number(parsed.toFixed(2));
     }
 
+    function parseCsvSelectionCount(value, defaultValue, rowNumber) {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        return defaultValue;
+      }
+
+      const parsed = Number(raw);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        throw new Error(`${rowNumber}行目の選択回数は1以上の整数で入力してください。`);
+      }
+      return parsed;
+    }
+
     function parseCsvBoolean(value, defaultValue, type, rowNumber) {
       const raw = String(value ?? "").trim();
       if (!raw) {
@@ -2191,7 +2242,7 @@
       }
 
       const exportCandidates = buildCandidates();
-      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "比率設定"]];
+      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "選択回数", "比率設定"]];
 
       exportCandidates.forEach((candidate) => {
         const setting = getCandidateExportSetting(candidate);
@@ -2201,6 +2252,7 @@
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
           "false",
+          "",
           ratioEnabled ? "true" : "false"
         ]);
       });
@@ -2213,6 +2265,7 @@
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
           "true",
+          String(Math.max(1, Number(candidate.count) || 1)),
           ratioEnabled ? "true" : "false"
         ]);
       });
@@ -2252,6 +2305,7 @@
         ratio: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratio),
         visible: findCsvColumn(headers, CSV_COLUMN_ALIASES.visible),
         selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected),
+        selectionCount: findCsvColumn(headers, CSV_COLUMN_ALIASES.selectionCount),
         ratioEnabled: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratioEnabled)
       };
 
@@ -2261,6 +2315,7 @@
 
       const activeByGenre = new Map();
       const importedSelectedItems = [];
+      const importedSelectedByKey = new Map();
       const importedSettings = new Map();
       let importedCount = 0;
       let importedRatioEnabled = true;
@@ -2283,6 +2338,7 @@
         const ratioCell = columns.ratio === -1 ? "" : row[columns.ratio];
         const visibleCell = columns.visible === -1 ? "" : row[columns.visible];
         const selectedCell = columns.selected === -1 ? "" : row[columns.selected];
+        const selectionCountCell = columns.selectionCount === -1 ? "" : row[columns.selectionCount];
         const ratioEnabledCell = columns.ratioEnabled === -1 ? "" : row[columns.ratioEnabled];
 
         if (String(ratioEnabledCell ?? "").trim() !== "") {
@@ -2306,18 +2362,33 @@
           setting.visible = parseCsvBoolean(visibleCell, true, "visible", rowNumber);
         }
 
-        const isSelected = parseCsvBoolean(selectedCell, false, "selected", rowNumber);
+        const rawSelectionCount = String(selectionCountCell ?? "").trim();
+        const selectionCount = parseCsvSelectionCount(selectionCountCell, 1, rowNumber);
+        const isSelected = parseCsvBoolean(
+          selectedCell,
+          rawSelectionCount !== "",
+          "selected",
+          rowNumber
+        );
         const importedCandidate = {
           groupId: null,
           filterKey,
           genre,
           value: candidateValue,
+          count: selectionCount,
           savedRatio: setting.ratio,
           savedVisible: setting.visible
         };
 
         if (isSelected) {
-          importedSelectedItems.push(importedCandidate);
+          const selectedKey = getSelectedItemKey(importedCandidate);
+          const existingSelected = importedSelectedByKey.get(selectedKey);
+          if (existingSelected) {
+            existingSelected.count += selectionCount;
+          } else {
+            importedSelectedByKey.set(selectedKey, importedCandidate);
+            importedSelectedItems.push(importedCandidate);
+          }
         } else {
           if (!activeByGenre.has(filterKey)) {
             activeByGenre.set(filterKey, {
@@ -2353,6 +2424,7 @@
       allCandidates = buildCandidates();
       selectedItems = selectedItems.map((candidate) => ({
         ...candidate,
+        count: Math.max(1, Number(candidate.count) || 1),
         savedRatio: getFilterSetting(candidate.filterKey).ratio,
         savedVisible: getFilterSetting(candidate.filterKey).visible
       }));
