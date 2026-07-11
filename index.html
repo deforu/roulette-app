@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>サウンド切替対応ルーレット v13</title>
+  <title>選択済み統合・ジャンル全件表示対応ルーレット v15</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -213,9 +213,16 @@
 
     .controls {
       display: grid;
-      grid-template-columns: 1.3fr 1fr 1fr;
       gap: 12px;
       margin-top: 16px;
+    }
+
+    .controls.is-spin-state {
+      grid-template-columns: 1fr;
+    }
+
+    .controls.is-result-state {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .button {
@@ -521,9 +528,6 @@
       margin: 0;
       display: grid;
       gap: 9px;
-      max-height: 300px;
-      overflow-y: auto;
-      padding-right: 4px;
     }
 
     .list-item {
@@ -657,9 +661,16 @@
       }
     }
 
+    .selected-divider {
+      height: 1px;
+      margin: 24px 0;
+      border: 0;
+      background: var(--line);
+    }
+
     .selected-section {
-      margin-top: 0;
-      padding: 24px;
+      margin: 0;
+      padding: 0;
     }
 
     .selected-header {
@@ -787,8 +798,7 @@
 
       .roulette-panel,
       .settings-panel,
-      .genre-panel,
-      .selected-section {
+      .genre-panel {
         padding: 18px;
         border-radius: 18px;
       }
@@ -834,20 +844,22 @@
             <div id="resultValue" class="result-value">まだ選択されていません</div>
           </div>
 
-          <div class="controls">
-            <button id="spinButton" class="button button-primary" type="button">ルーレットを回す</button>
-            <button id="decisionButton" class="button button-decision" type="button" disabled>決定</button>
-            <button id="holdButton" class="button button-hold" type="button" disabled>保留</button>
-          </div>
           <div id="message" class="message" aria-live="polite"></div>
-        </section>
-
-        <section class="panel selected-section" aria-label="選択済み候補">
-          <div class="selected-header">
-            <h2>選択済み</h2>
-            <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
+          <div id="actionControls" class="controls is-spin-state">
+            <button id="spinButton" class="button button-primary" type="button">ルーレットを回す</button>
+            <button id="decisionButton" class="button button-decision" type="button" hidden disabled>決定</button>
+            <button id="holdButton" class="button button-hold" type="button" hidden disabled>保留</button>
           </div>
-          <div id="selectedGroups" class="selected-groups"></div>
+
+          <hr class="selected-divider" aria-hidden="true" />
+
+          <section class="selected-section" aria-label="選択済み候補">
+            <div class="selected-header">
+              <h2>選択済み一覧</h2>
+              <span id="selectedCount" class="count-badge" aria-label="選択済み候補数">0</span>
+            </div>
+            <div id="selectedGroups" class="selected-groups"></div>
+          </section>
         </section>
       </div>
 
@@ -948,6 +960,7 @@
     const selectedCount = document.getElementById("selectedCount");
     const resultValue = document.getElementById("resultValue");
     const message = document.getElementById("message");
+    const actionControls = document.getElementById("actionControls");
     const spinButton = document.getElementById("spinButton");
     const decisionButton = document.getElementById("decisionButton");
     const holdButton = document.getElementById("holdButton");
@@ -1111,11 +1124,25 @@
       message.className = type ? `message ${type}` : "message";
     }
 
+    function renderActionButtons() {
+      const waitingForDecision = !spinning && currentResultIndex !== null;
+
+      spinButton.hidden = waitingForDecision;
+      decisionButton.hidden = !waitingForDecision;
+      holdButton.hidden = !waitingForDecision;
+
+      spinButton.disabled = spinning || candidates.length === 0 || currentResultIndex !== null;
+      decisionButton.disabled = !waitingForDecision;
+      holdButton.disabled = !waitingForDecision;
+
+      actionControls.classList.toggle("is-spin-state", !waitingForDecision);
+      actionControls.classList.toggle("is-result-state", waitingForDecision);
+    }
+
     function resetResult() {
       currentResultIndex = null;
       resultValue.textContent = "まだ選択されていません";
-      decisionButton.disabled = true;
-      holdButton.disabled = true;
+      renderActionButtons();
     }
 
     function isFilterLocked() {
@@ -1337,8 +1364,8 @@
     function renderState() {
       renderGenres();
       renderSelectedItems();
+      renderActionButtons();
       const locked = isFilterLocked();
-      spinButton.disabled = spinning || candidates.length === 0 || currentResultIndex !== null;
       importButton.disabled = locked;
       exportButton.disabled = locked;
     }
@@ -1590,13 +1617,11 @@
         stopSpinSound();
         currentResultIndex = chosenIndex;
         resultValue.textContent = formatResult(candidates[chosenIndex]);
-        decisionButton.disabled = false;
-        holdButton.disabled = false;
         spinning = false;
         applyButton.disabled = false;
         resetButton.disabled = false;
         setInputControlsDisabled(false);
-        renderGenres();
+        renderState();
         setMessage("「決定」または「保留」を選んでください。");
       }
 
