@@ -1581,6 +1581,24 @@
       ) || segments[segments.length - 1];
     }
 
+    function normalizeAngle(angle) {
+      const fullRotation = Math.PI * 2;
+      return ((angle % fullRotation) + fullRotation) % fullRotation;
+    }
+
+    function getSegmentAtPointer(segments, rotation) {
+      if (segments.length === 0) {
+        return null;
+      }
+
+      // 針はルーレット上部に固定されています。
+      // ルーレットの回転角度を逆向きに戻すことで、針が指す扇形のローカル角度を求めます。
+      const pointerAngle = normalizeAngle(-rotation);
+      return segments.find(
+        (segment) => pointerAngle >= segment.start && pointerAngle < segment.start + segment.angle
+      ) || segments[segments.length - 1];
+    }
+
     function renderSoundToggle() {
       soundToggleButton.innerHTML = soundEnabled ? SPEAKER_ON_ICON : SPEAKER_OFF_ICON;
       soundToggleButton.classList.toggle("is-muted", !soundEnabled);
@@ -1681,6 +1699,20 @@
       const startRotation = currentRotation;
       const duration = 4200;
       const startTime = performance.now();
+      let lastDisplayedCandidateIndex = null;
+
+      function updateSpinningResult() {
+        const pointedSegment = getSegmentAtPointer(segments, currentRotation);
+        if (!pointedSegment || pointedSegment.candidateIndex === lastDisplayedCandidateIndex) {
+          return;
+        }
+
+        lastDisplayedCandidateIndex = pointedSegment.candidateIndex;
+        resultValue.textContent = formatResult(pointedSegment.candidate);
+      }
+
+      // ボタンを押した直後から、現在針が指している候補を表示します。
+      updateSpinningResult();
 
       function animate(now) {
         const elapsed = now - startTime;
@@ -1688,6 +1720,7 @@
         const eased = easeOutCubic(progress);
         currentRotation = startRotation + (targetRotation - startRotation) * eased;
         drawWheel(currentRotation);
+        updateSpinningResult();
 
         if (progress < 1) {
           requestAnimationFrame(animate);
