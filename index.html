@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ジャンル付きルーレット v2</title>
+  <title>ジャンルフィルター付きルーレット v3</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -232,7 +232,7 @@
     }
 
     .count-badge {
-      min-width: 34px;
+      min-width: 58px;
       height: 28px;
       padding: 0 9px;
       display: grid;
@@ -367,13 +367,38 @@
       border: 1px solid #f3cfcd;
     }
 
+    .filter-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-action-button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #4f5668;
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .filter-action-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: rgba(91, 91, 214, 0.48);
+      background: #f4f3ff;
+    }
+
     .genre-list {
       list-style: none;
       padding: 0;
       margin: 0;
       display: grid;
       gap: 9px;
-      max-height: 260px;
+      max-height: 300px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -409,12 +434,48 @@
       line-height: 1.45;
     }
 
-    .genre-item-count {
+    .list-item.is-hidden {
+      border-color: #e5e8ef;
+      background: #f4f5f8;
+    }
+
+    .list-item.is-hidden .item-number,
+    .list-item.is-hidden .item-text {
+      opacity: 0.5;
+    }
+
+    .visibility-button {
       flex: 0 0 auto;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--primary);
+      background: #ffffff;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+
+    .visibility-button svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .visibility-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: rgba(91, 91, 214, 0.52);
+      background: #f4f3ff;
+    }
+
+    .visibility-button.is-hidden {
+      color: #8b92a3;
+      background: #eceef3;
     }
 
     .selected-section {
@@ -557,8 +618,8 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <div class="version-note">ジャンル入力対応版</div>
-      <p>ジャンルごとに候補を登録できます。結果を「決定」すると候補から削除され、「保留」では候補を残したまま再抽選できます。</p>
+      <div class="version-note">ジャンルフィルター対応版</div>
+      <p>ジャンルごとに候補を登録し、「現在のジャンル」欄からルーレットに含めるグループを複数選択できます。</p>
     </header>
 
     <div class="main-grid">
@@ -599,7 +660,11 @@
         <section class="panel genre-panel">
           <div class="panel-title">
             <h2>現在のジャンル</h2>
-            <span id="genreCount" class="count-badge" aria-label="ジャンル数">0</span>
+            <span id="genreCount" class="count-badge" aria-label="表示中ジャンル数と全ジャンル数">0 / 0</span>
+          </div>
+          <div class="filter-actions" aria-label="ジャンルの一括表示設定">
+            <button id="showAllGenresButton" class="filter-action-button" type="button">すべて表示</button>
+            <button id="hideAllGenresButton" class="filter-action-button" type="button">すべて非表示</button>
           </div>
           <ul id="genreList" class="genre-list"></ul>
         </section>
@@ -636,6 +701,20 @@
       "#667085"
     ];
 
+    const EYE_OPEN_ICON = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path>
+        <circle cx="12" cy="12" r="2.7"></circle>
+      </svg>`;
+
+    const EYE_CLOSED_ICON = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 3l18 18"></path>
+        <path d="M10.6 6.2A10.5 10.5 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.4 3.1"></path>
+        <path d="M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 4.1-.9"></path>
+        <path d="M10 10a2.8 2.8 0 0 0 4 4"></path>
+      </svg>`;
+
     const canvas = document.getElementById("wheelCanvas");
     const context = canvas.getContext("2d");
     const inputGroupsContainer = document.getElementById("inputGroups");
@@ -650,26 +729,30 @@
     const holdButton = document.getElementById("holdButton");
     const applyButton = document.getElementById("applyButton");
     const resetButton = document.getElementById("resetButton");
+    const showAllGenresButton = document.getElementById("showAllGenresButton");
+    const hideAllGenresButton = document.getElementById("hideAllGenresButton");
 
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
+    let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
 
-    function createGroup(genre = "", itemsText = "") {
+    function createGroup(genre = "", itemsText = "", visible = true) {
       groupSequence += 1;
       return {
         id: `group-${groupSequence}`,
         genre,
-        itemsText
+        itemsText,
+        visible
       };
     }
 
     function createDefaultGroups() {
-      return DEFAULT_GROUPS.map((group) => createGroup(group.genre, group.itemsText));
+      return DEFAULT_GROUPS.map((group) => createGroup(group.genre, group.itemsText, true));
     }
 
     function normalizeItems(text) {
@@ -688,7 +771,6 @@
     }
 
     function buildCandidates() {
-      const pairKeys = new Set();
       const nextCandidates = [];
 
       inputGroups.forEach((group) => {
@@ -698,12 +780,6 @@
         group.itemsText = items.join("\n");
 
         items.forEach((value) => {
-          const pairKey = `${genre}\u0000${value}`;
-          if (pairKeys.has(pairKey)) {
-            return;
-          }
-
-          pairKeys.add(pairKey);
           nextCandidates.push({
             groupId: group.id,
             genre,
@@ -713,6 +789,16 @@
       });
 
       return nextCandidates;
+    }
+
+    function updateVisibleCandidates() {
+      const visibilityByGroup = new Map(
+        inputGroups.map((group) => [group.id, group.visible])
+      );
+
+      candidates = allCandidates.filter(
+        (candidate) => visibilityByGroup.get(candidate.groupId) === true
+      );
     }
 
     function formatResult(candidate) {
@@ -733,6 +819,10 @@
       resultValue.textContent = "まだ選択されていません";
       decisionButton.disabled = true;
       holdButton.disabled = true;
+    }
+
+    function isFilterLocked() {
+      return spinning || currentResultIndex !== null;
     }
 
     function setInputControlsDisabled(disabled) {
@@ -828,10 +918,24 @@
 
     function renderGenres() {
       genreList.innerHTML = "";
-      const genreGroups = aggregateByGenre(candidates);
-      genreCount.textContent = genreGroups.size;
+      const countsByGroup = new Map();
 
-      if (genreGroups.size === 0) {
+      allCandidates.forEach((candidate) => {
+        countsByGroup.set(candidate.groupId, (countsByGroup.get(candidate.groupId) || 0) + 1);
+      });
+
+      const groupsWithCandidates = inputGroups.filter(
+        (group) => (countsByGroup.get(group.id) || 0) > 0
+      );
+      const visibleGroupCount = groupsWithCandidates.filter((group) => group.visible).length;
+      const totalGroupCount = groupsWithCandidates.length;
+      const locked = isFilterLocked();
+
+      genreCount.textContent = `${visibleGroupCount} / ${totalGroupCount}`;
+      showAllGenresButton.disabled = locked || totalGroupCount === 0 || visibleGroupCount === totalGroupCount;
+      hideAllGenresButton.disabled = locked || totalGroupCount === 0 || visibleGroupCount === 0;
+
+      if (totalGroupCount === 0) {
         const empty = document.createElement("li");
         empty.className = "empty-state";
         empty.textContent = "ジャンルがありません";
@@ -839,9 +943,10 @@
         return;
       }
 
-      Array.from(genreGroups.entries()).forEach(([genre, values], index) => {
+      groupsWithCandidates.forEach((group, index) => {
         const item = document.createElement("li");
-        item.className = "list-item";
+        item.className = group.visible ? "list-item" : "list-item is-hidden";
+        item.dataset.groupId = group.id;
 
         const number = document.createElement("span");
         number.className = "item-number";
@@ -849,13 +954,23 @@
 
         const text = document.createElement("span");
         text.className = "item-text";
-        text.textContent = displayGenre(genre);
+        text.textContent = `${displayGenre(group.genre)}（${countsByGroup.get(group.id)}件）`;
 
-        const count = document.createElement("span");
-        count.className = "genre-item-count";
-        count.textContent = `${values.length}件`;
+        const visibilityButton = document.createElement("button");
+        visibilityButton.className = group.visible
+          ? "visibility-button"
+          : "visibility-button is-hidden";
+        visibilityButton.type = "button";
+        visibilityButton.dataset.action = "toggle-visibility";
+        visibilityButton.disabled = locked;
+        visibilityButton.innerHTML = group.visible ? EYE_OPEN_ICON : EYE_CLOSED_ICON;
+        visibilityButton.setAttribute(
+          "aria-label",
+          `${displayGenre(group.genre)}を${group.visible ? "非表示" : "表示"}にする`
+        );
+        visibilityButton.title = group.visible ? "ルーレットから非表示にする" : "ルーレットに表示する";
 
-        item.append(number, text, count);
+        item.append(number, text, visibilityButton);
         genreList.appendChild(item);
       });
     }
@@ -898,7 +1013,7 @@
     function renderState() {
       renderGenres();
       renderSelectedItems();
-      spinButton.disabled = spinning || candidates.length === 0;
+      spinButton.disabled = spinning || candidates.length === 0 || currentResultIndex !== null;
     }
 
     function fitText(text, maxWidth, baseSize) {
@@ -933,8 +1048,12 @@
         context.fillStyle = "#6d7485";
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.font = "700 34px sans-serif";
-        context.fillText("候補がありません", 0, 0);
+        context.font = "700 31px sans-serif";
+        context.fillText(
+          allCandidates.length === 0 ? "候補がありません" : "表示中の候補がありません",
+          0,
+          0
+        );
         context.restore();
         return;
       }
@@ -988,7 +1107,7 @@
     }
 
     function spinRoulette() {
-      if (spinning || candidates.length === 0) {
+      if (spinning || candidates.length === 0 || currentResultIndex !== null) {
         return;
       }
 
@@ -999,6 +1118,7 @@
       applyButton.disabled = true;
       resetButton.disabled = true;
       setInputControlsDisabled(true);
+      renderGenres();
 
       const chosenIndex = Math.floor(Math.random() * candidates.length);
       const arc = (Math.PI * 2) / candidates.length;
@@ -1030,10 +1150,10 @@
         decisionButton.disabled = false;
         holdButton.disabled = false;
         spinning = false;
-        spinButton.disabled = false;
         applyButton.disabled = false;
         resetButton.disabled = false;
         setInputControlsDisabled(false);
+        renderGenres();
         setMessage("「決定」または「保留」を選んでください。");
       }
 
@@ -1059,9 +1179,15 @@
         return;
       }
 
-      const [decided] = candidates.splice(currentResultIndex, 1);
+      const decided = candidates[currentResultIndex];
+      const allCandidateIndex = allCandidates.indexOf(decided);
+      if (allCandidateIndex !== -1) {
+        allCandidates.splice(allCandidateIndex, 1);
+      }
+
       selectedItems.push(decided);
       removeCandidateFromInput(decided);
+      updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
       renderInputGroups();
@@ -1077,11 +1203,12 @@
 
       const heldItem = candidates[currentResultIndex];
       resetResult();
+      renderState();
       setMessage(`「${formatResult(heldItem)}」は候補に残しました。`);
     }
 
     function applyItems() {
-      if (spinning) {
+      if (spinning || currentResultIndex !== null) {
         return;
       }
 
@@ -1092,18 +1219,25 @@
         return;
       }
 
-      candidates = nextCandidates;
+      allCandidates = nextCandidates;
+      updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
       renderInputGroups();
       renderState();
       drawWheel(0);
-      setMessage("ジャンルと候補をルーレットに反映しました。", "success");
+      setMessage(
+        candidates.length > 0
+          ? "ジャンルと候補をルーレットに反映しました。"
+          : "候補を反映しました。現在はすべてのジャンルが非表示です。",
+        "success"
+      );
     }
 
     function resetAll() {
       inputGroups = createDefaultGroups();
-      candidates = buildCandidates();
+      allCandidates = buildCandidates();
+      updateVisibleCandidates();
       selectedItems = [];
       currentRotation = 0;
       resetResult();
@@ -1111,6 +1245,43 @@
       renderState();
       drawWheel(0);
       setMessage("初期状態に戻しました。");
+    }
+
+    function applyGenreVisibility(groupId, visible) {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      const group = inputGroups.find((item) => item.id === groupId);
+      if (!group) {
+        return;
+      }
+
+      group.visible = visible;
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderState();
+      drawWheel(0);
+      setMessage(
+        `${displayGenre(group.genre)}をルーレットで${visible ? "表示" : "非表示"}にしました。`
+      );
+    }
+
+    function applyAllGenreVisibility(visible) {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      inputGroups.forEach((group) => {
+        group.visible = visible;
+      });
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderState();
+      drawWheel(0);
+      setMessage(visible ? "すべてのジャンルを表示しました。" : "すべてのジャンルを非表示にしました。");
     }
 
     inputGroupsContainer.addEventListener("input", (event) => {
@@ -1153,13 +1324,31 @@
       }
     });
 
+    genreList.addEventListener("click", (event) => {
+      const button = event.target.closest('button[data-action="toggle-visibility"]');
+      const item = event.target.closest(".list-item");
+      if (!button || !item || isFilterLocked()) {
+        return;
+      }
+
+      const group = inputGroups.find((entry) => entry.id === item.dataset.groupId);
+      if (!group) {
+        return;
+      }
+
+      applyGenreVisibility(group.id, !group.visible);
+    });
+
+    showAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(true));
+    hideAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(false));
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
     applyButton.addEventListener("click", applyItems);
     resetButton.addEventListener("click", resetAll);
 
-    candidates = buildCandidates();
+    allCandidates = buildCandidates();
+    updateVisibleCandidates();
     renderInputGroups();
     renderState();
     drawWheel();
