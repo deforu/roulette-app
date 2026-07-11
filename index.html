@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>選択済み候補の復活対応ルーレット v16</title>
+  <title>結果音対応ルーレット v17</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -1010,6 +1010,10 @@
     spinSound.preload = "auto";
     spinSound.loop = false;
 
+    const resultSound = new Audio("roulette-result.wav");
+    resultSound.preload = "auto";
+    resultSound.loop = false;
+
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
     let filterSettings = new Map();
@@ -1608,12 +1612,34 @@
       spinSound.currentTime = 0;
     }
 
+    function playResultSound() {
+      if (!soundEnabled) {
+        return;
+      }
+
+      resultSound.pause();
+      resultSound.currentTime = 0;
+
+      const playPromise = resultSound.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // 音声ファイルが未配置、またはブラウザに再生を拒否された場合も処理は続行します。
+        });
+      }
+    }
+
+    function stopResultSound() {
+      resultSound.pause();
+      resultSound.currentTime = 0;
+    }
+
     function toggleSound() {
       soundEnabled = !soundEnabled;
       renderSoundToggle();
 
       if (!soundEnabled) {
         stopSpinSound();
+        stopResultSound();
         return;
       }
 
@@ -1634,6 +1660,7 @@
 
       spinning = true;
       resetResult();
+      stopResultSound();
       startSpinSound();
       setMessage("抽選中です…");
       spinButton.disabled = true;
@@ -1671,6 +1698,7 @@
         stopSpinSound();
         currentResultIndex = chosenIndex;
         resultValue.textContent = formatResult(candidates[chosenIndex]);
+        playResultSound();
         spinning = false;
         applyButton.disabled = false;
         resetButton.disabled = false;
@@ -1826,6 +1854,8 @@
     }
 
     function resetAll() {
+      stopSpinSound();
+      stopResultSound();
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
       ratioEnabled = true;
