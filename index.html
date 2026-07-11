@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>比率切替対応ルーレット v10</title>
+  <title>サウンド切替対応ルーレット v13</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -60,10 +60,53 @@
       margin-bottom: 24px;
     }
 
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 8px;
+    }
+
     .header h1 {
-      margin: 0 0 8px;
+      margin: 0;
       font-size: clamp(28px, 4vw, 42px);
       letter-spacing: 0.02em;
+    }
+
+    .sound-toggle-button {
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--primary);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 8px 20px rgba(41, 49, 75, 0.10);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    .sound-toggle-button svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sound-toggle-button:not(:disabled):hover {
+      transform: translateY(-2px);
+      border-color: rgba(91, 91, 214, 0.52);
+      background: #f4f3ff;
+    }
+
+    .sound-toggle-button.is-muted {
+      color: #8b92a3;
+      background: #eceef3;
     }
 
     .version-note {
@@ -727,6 +770,16 @@
     }
 
     @media (max-width: 640px) {
+      .header-top {
+        align-items: flex-start;
+      }
+
+      .sound-toggle-button {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+
       .page {
         width: min(100% - 20px, 1240px);
         padding-top: 24px;
@@ -758,8 +811,11 @@
 <body>
   <main class="page">
     <header class="header">
-      <h1>ルーレット</h1>
-      <div class="version-note">比率切替・CSV保存対応版</div>
+      <div class="header-top">
+        <h1>ルーレット</h1>
+        <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
+      </div>
+      <div class="version-note">比率切替・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率をオフにすると、表示中の全候補が同じ確率になります。CSVで設定全体を保存・復元できます。</p>
     </header>
 
@@ -869,6 +925,20 @@
         <path d="M10 10a2.8 2.8 0 0 0 4 4"></path>
       </svg>`;
 
+    const SPEAKER_ON_ICON = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path>
+        <path d="M15 9a4 4 0 0 1 0 6"></path>
+        <path d="M17.8 6.7a7.5 7.5 0 0 1 0 10.6"></path>
+      </svg>`;
+
+    const SPEAKER_OFF_ICON = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11 5 6.8 8.5H3.5v7h3.3L11 19V5Z"></path>
+        <path d="m16 10 5 5"></path>
+        <path d="m21 10-5 5"></path>
+      </svg>`;
+
     const canvas = document.getElementById("wheelCanvas");
     const context = canvas.getContext("2d");
     const inputGroupsContainer = document.getElementById("inputGroups");
@@ -889,6 +959,7 @@
     const importButton = document.getElementById("importButton");
     const exportButton = document.getElementById("exportButton");
     const csvFileInput = document.getElementById("csvFileInput");
+    const soundToggleButton = document.getElementById("soundToggleButton");
 
     const spinSound = new Audio("roulette-spin.wav");
     spinSound.preload = "auto";
@@ -904,6 +975,7 @@
     let currentRotation = 0;
     let spinning = false;
     let ratioEnabled = true;
+    let soundEnabled = true;
 
     function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
@@ -1425,7 +1497,21 @@
       ) || segments[segments.length - 1];
     }
 
+    function renderSoundToggle() {
+      soundToggleButton.innerHTML = soundEnabled ? SPEAKER_ON_ICON : SPEAKER_OFF_ICON;
+      soundToggleButton.classList.toggle("is-muted", !soundEnabled);
+      soundToggleButton.setAttribute("aria-pressed", String(soundEnabled));
+
+      const label = soundEnabled ? "サウンドをオフにする" : "サウンドをオンにする";
+      soundToggleButton.setAttribute("aria-label", label);
+      soundToggleButton.title = label;
+    }
+
     function startSpinSound() {
+      if (!soundEnabled) {
+        return;
+      }
+
       spinSound.pause();
       spinSound.currentTime = 0;
 
@@ -1440,6 +1526,20 @@
     function stopSpinSound() {
       spinSound.pause();
       spinSound.currentTime = 0;
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      renderSoundToggle();
+
+      if (!soundEnabled) {
+        stopSpinSound();
+        return;
+      }
+
+      if (spinning) {
+        startSpinSound();
+      }
     }
 
     function spinRoulette() {
@@ -2092,6 +2192,7 @@
     showAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(true));
     hideAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(false));
     ratioModeButton.addEventListener("click", toggleRatioMode);
+    soundToggleButton.addEventListener("click", toggleSound);
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
@@ -2102,6 +2203,7 @@
     syncFilterSettings();
     updateVisibleCandidates();
     renderInputGroups();
+    renderSoundToggle();
     renderState();
     drawWheel();
   </script>
