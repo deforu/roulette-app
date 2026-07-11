@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ジャンル比率設定付きルーレット v7</title>
+  <title>CSV保存・復元対応ルーレット v8</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -366,6 +366,50 @@
       gap: 10px;
     }
 
+    .data-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .button-import,
+    .button-export {
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 800;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .button-import {
+      color: var(--primary-dark);
+      background: #f4f3ff;
+      border-color: rgba(91, 91, 214, 0.28);
+    }
+
+    .button-export {
+      color: #1f6f50;
+      background: #f3faf7;
+      border-color: #cfe6dc;
+    }
+
+    .button-import:not(:disabled):hover,
+    .button-export:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+
+    .button-import:not(:disabled):hover {
+      border-color: rgba(91, 91, 214, 0.55);
+      background: #eceaff;
+    }
+
+    .button-export:not(:disabled):hover {
+      border-color: #91c8b0;
+      background: #eaf7f0;
+    }
+
     .button-apply {
       color: #ffffff;
       background: #343847;
@@ -619,6 +663,112 @@
       color: var(--success);
     }
 
+    .modal-backdrop {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(20, 24, 36, 0.56);
+      backdrop-filter: blur(6px);
+    }
+
+    .modal-backdrop[hidden] {
+      display: none;
+    }
+
+    .modal-card {
+      width: min(520px, 100%);
+      max-height: min(720px, calc(100vh - 40px));
+      overflow-y: auto;
+      padding: 24px;
+      border: 1px solid rgba(223, 228, 238, 0.95);
+      border-radius: 20px;
+      background: #ffffff;
+      box-shadow: 0 24px 70px rgba(18, 23, 38, 0.28);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .modal-close {
+      flex: 0 0 auto;
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: #4f5668;
+      background: #ffffff;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .modal-description {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .import-options {
+      display: grid;
+      gap: 12px;
+    }
+
+    .import-option {
+      width: 100%;
+      min-height: 82px;
+      display: grid;
+      gap: 5px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: var(--text);
+      background: #ffffff;
+      text-align: left;
+    }
+
+    .import-option:not(:disabled):hover {
+      border-color: rgba(91, 91, 214, 0.52);
+      background: #f7f6ff;
+    }
+
+    .import-option strong {
+      font-size: 15px;
+    }
+
+    .import-option span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .csv-format-note {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: #4f5668;
+      background: #f5f7fb;
+      font-size: 12px;
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+    }
+
+    .visually-hidden-file {
+      display: none;
+    }
+
     @media (max-width: 980px) {
       .main-grid {
         grid-template-columns: 1fr;
@@ -670,7 +820,8 @@
         grid-column: 1 / -1;
       }
 
-      .settings-actions {
+      .settings-actions,
+      .data-actions {
         grid-template-columns: 1fr;
       }
     }
@@ -680,8 +831,8 @@
   <main class="page">
     <header class="header">
       <h1>ルーレット</h1>
-      <div class="version-note">レイアウト再配置版</div>
-      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率はジャンル全体の当選確率に反映されます。</p>
+      <div class="version-note">CSV保存・復元対応版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。CSVで設定全体を保存・復元できます。</p>
     </header>
 
     <div class="main-grid">
@@ -734,16 +885,46 @@
             <h2>候補を編集</h2>
           </div>
           <div id="inputGroups" class="input-groups"></div>
-          <p class="helper">ジャンルは任意です。候補は1行につき1件入力してください。「＋」で入力欄を追加し、「－」で削除できます。</p>
+          <p class="helper">ジャンルは任意です。同じジャンル名は1つのグループとして扱います。候補は1行につき1件入力してください。「＋」で入力欄を追加し、「－」で削除できます。</p>
           <div class="settings-actions">
             <button id="applyButton" class="button button-apply" type="button">候補を反映</button>
             <button id="resetButton" class="button button-reset" type="button">初期化</button>
+          </div>
+          <div class="data-actions" aria-label="データのインポートとエクスポート">
+            <button id="importButton" class="button-import" type="button">インポート</button>
+            <button id="exportButton" class="button-export" type="button">CSVエクスポート</button>
           </div>
         </section>
       </aside>
     </div>
 
   </main>
+
+  <div id="importModal" class="modal-backdrop" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+      <div class="modal-header">
+        <h2 id="importModalTitle">データをインポート</h2>
+        <button id="closeImportModalButton" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <p class="modal-description">インポートすると、現在の候補・ジャンル設定・選択済み一覧をCSVの内容で置き換えます。</p>
+      <div class="import-options">
+        <button id="chooseCsvButton" class="import-option" type="button">
+          <strong>CSVファイルをインポート</strong>
+          <span>候補、ジャンル、比率、表示状態、選択済み状態を読み込みます。</span>
+        </button>
+        <button class="import-option" type="button" disabled>
+          <strong>公開スプレッドシートを読み込む</strong>
+          <span>この機能は今後の実装対象です。</span>
+        </button>
+      </div>
+      <div class="csv-format-note">
+        必須列：候補<br>
+        任意列：ジャンル、ジャンル比率、ジャンル表示、選択済み<br>
+        任意列が空欄の場合は、比率1・表示・未選択として扱います。
+      </div>
+    </section>
+  </div>
+  <input id="csvFileInput" class="visually-hidden-file" type="file" accept=".csv,text/csv" />
 
   <script>
     const DEFAULT_GROUPS = [
@@ -799,6 +980,12 @@
     const resetButton = document.getElementById("resetButton");
     const showAllGenresButton = document.getElementById("showAllGenresButton");
     const hideAllGenresButton = document.getElementById("hideAllGenresButton");
+    const importButton = document.getElementById("importButton");
+    const exportButton = document.getElementById("exportButton");
+    const importModal = document.getElementById("importModal");
+    const closeImportModalButton = document.getElementById("closeImportModalButton");
+    const chooseCsvButton = document.getElementById("chooseCsvButton");
+    const csvFileInput = document.getElementById("csvFileInput");
 
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
@@ -838,8 +1025,17 @@
         });
     }
 
+    function normalizeGenreName(value) {
+      return String(value ?? "").trim();
+    }
+
+    function getFilterKeyFromGenre(genre) {
+      const normalizedGenre = normalizeGenreName(genre);
+      return normalizedGenre ? `genre:${normalizedGenre}` : NO_GENRE_KEY;
+    }
+
     function getFilterKey(group) {
-      return group.genre.trim() ? group.id : NO_GENRE_KEY;
+      return getFilterKeyFromGenre(group.genre);
     }
 
     function displayGenre(genre) {
@@ -857,7 +1053,10 @@
     }
 
     function syncFilterSettings() {
-      const activeKeys = new Set(allCandidates.map((candidate) => candidate.filterKey));
+      const activeKeys = new Set([
+        ...allCandidates.map((candidate) => candidate.filterKey),
+        ...selectedItems.map((candidate) => candidate.filterKey)
+      ]);
 
       [...filterSettings.keys()].forEach((key) => {
         if (!activeKeys.has(key)) {
@@ -876,7 +1075,7 @@
         const items = normalizeItems(group.itemsText);
         group.genre = genre;
         group.itemsText = items.join("\n");
-        const filterKey = genre ? group.id : NO_GENRE_KEY;
+        const filterKey = getFilterKeyFromGenre(genre);
 
         items.forEach((value) => {
           nextCandidates.push({
@@ -895,30 +1094,23 @@
       const filterGroups = [];
       const groupByKey = new Map();
 
-      inputGroups.forEach((group) => {
-        const count = allCandidates.filter((candidate) => candidate.groupId === group.id).length;
-        if (count === 0) {
-          return;
+      allCandidates.forEach((candidate) => {
+        if (!groupByKey.has(candidate.filterKey)) {
+          const filterGroup = {
+            filterKey: candidate.filterKey,
+            genre: candidate.genre,
+            count: 0,
+            groupIds: []
+          };
+          groupByKey.set(candidate.filterKey, filterGroup);
+          filterGroups.push(filterGroup);
         }
 
-        const genre = group.genre.trim();
-        const filterKey = genre ? group.id : NO_GENRE_KEY;
-
-        if (filterKey === NO_GENRE_KEY && groupByKey.has(filterKey)) {
-          groupByKey.get(filterKey).count += count;
-          groupByKey.get(filterKey).groupIds.push(group.id);
-          return;
+        const filterGroup = groupByKey.get(candidate.filterKey);
+        filterGroup.count += 1;
+        if (!filterGroup.groupIds.includes(candidate.groupId)) {
+          filterGroup.groupIds.push(candidate.groupId);
         }
-
-        const filterGroup = {
-          filterKey,
-          genre,
-          count,
-          groupIds: [group.id]
-        };
-
-        filterGroups.push(filterGroup);
-        groupByKey.set(filterKey, filterGroup);
       });
 
       return filterGroups;
@@ -1158,7 +1350,10 @@
     function renderState() {
       renderGenres();
       renderSelectedItems();
+      const locked = isFilterLocked();
       spinButton.disabled = spinning || candidates.length === 0 || currentResultIndex !== null;
+      importButton.disabled = locked;
+      exportButton.disabled = locked;
     }
 
     function fitText(text, maxWidth, baseSize) {
@@ -1381,7 +1576,12 @@
         allCandidates.splice(allCandidateIndex, 1);
       }
 
-      selectedItems.push(decided);
+      const decidedSetting = getFilterSetting(decided.filterKey);
+      selectedItems.push({
+        ...decided,
+        savedRatio: decidedSetting.ratio,
+        savedVisible: decidedSetting.visible
+      });
       removeCandidateFromInput(decided);
       syncFilterSettings();
       updateVisibleCandidates();
@@ -1507,6 +1707,319 @@
       setMessage(`${getFilterGroupLabel(filterKey)}の比率を${formatRatio(rounded)}に変更しました。`, "success");
     }
 
+    const CSV_COLUMN_ALIASES = {
+      candidate: ["候補", "候補名", "candidate", "item", "value"],
+      genre: ["ジャンル", "genre", "category"],
+      ratio: ["ジャンル比率", "比率", "ratio", "genreratio", "genre_ratio"],
+      visible: ["ジャンル表示", "表示状態", "表示", "visible", "visibility"],
+      selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"]
+    };
+
+    function normalizeCsvHeader(value) {
+      return String(value ?? "")
+        .replace(/^\uFEFF/, "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s　-]/g, "");
+    }
+
+    function findCsvColumn(headers, aliases) {
+      const normalizedAliases = aliases.map(normalizeCsvHeader);
+      return headers.findIndex((header) => normalizedAliases.includes(normalizeCsvHeader(header)));
+    }
+
+    function parseCsv(text) {
+      const source = String(text ?? "").replace(/^\uFEFF/, "");
+      const rows = [];
+      let row = [];
+      let field = "";
+      let inQuotes = false;
+
+      for (let index = 0; index < source.length; index += 1) {
+        const character = source[index];
+
+        if (inQuotes) {
+          if (character === '"') {
+            if (source[index + 1] === '"') {
+              field += '"';
+              index += 1;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += character;
+          }
+          continue;
+        }
+
+        if (character === '"') {
+          inQuotes = true;
+          continue;
+        }
+
+        if (character === ",") {
+          row.push(field);
+          field = "";
+          continue;
+        }
+
+        if (character === "\n") {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = "";
+          continue;
+        }
+
+        if (character !== "\r") {
+          field += character;
+        }
+      }
+
+      if (inQuotes) {
+        throw new Error("CSV内の引用符が閉じられていません。");
+      }
+
+      if (field !== "" || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+      }
+
+      return rows.filter((values) => values.some((value) => String(value).trim() !== ""));
+    }
+
+    function parseCsvRatio(value, rowNumber) {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        return 1;
+      }
+
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < MIN_RATIO) {
+        throw new Error(`${rowNumber}行目の比率は${MIN_RATIO}以上の数値で入力してください。`);
+      }
+      return Number(parsed.toFixed(2));
+    }
+
+    function parseCsvBoolean(value, defaultValue, type, rowNumber) {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        return defaultValue;
+      }
+
+      const normalized = raw.toLowerCase();
+      const commonTrue = ["true", "1", "yes", "y", "on"];
+      const commonFalse = ["false", "0", "no", "n", "off"];
+      const trueValues = type === "visible"
+        ? [...commonTrue, "表示", "表示中", "visible"]
+        : [...commonTrue, "選択済み", "決定済み", "selected"];
+      const falseValues = type === "visible"
+        ? [...commonFalse, "非表示", "hidden"]
+        : [...commonFalse, "未選択", "未決定", "候補"];
+
+      if (trueValues.includes(normalized)) {
+        return true;
+      }
+      if (falseValues.includes(normalized)) {
+        return false;
+      }
+
+      throw new Error(`${rowNumber}行目の${type === "visible" ? "表示状態" : "選択済み状態"}を判定できません。`);
+    }
+
+    function escapeCsvValue(value) {
+      const text = String(value ?? "");
+      return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+
+    function getCandidateExportSetting(candidate) {
+      if (filterSettings.has(candidate.filterKey)) {
+        return getFilterSetting(candidate.filterKey);
+      }
+      return {
+        ratio: candidate.savedRatio ?? 1,
+        visible: candidate.savedVisible ?? true
+      };
+    }
+
+    function exportCsv() {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      const exportCandidates = buildCandidates();
+      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み"]];
+
+      exportCandidates.forEach((candidate) => {
+        const setting = getCandidateExportSetting(candidate);
+        rows.push([
+          candidate.genre,
+          candidate.value,
+          formatRatio(setting.ratio),
+          setting.visible ? "true" : "false",
+          "false"
+        ]);
+      });
+
+      selectedItems.forEach((candidate) => {
+        const setting = getCandidateExportSetting(candidate);
+        rows.push([
+          candidate.genre,
+          candidate.value,
+          formatRatio(setting.ratio),
+          setting.visible ? "true" : "false",
+          "true"
+        ]);
+      });
+
+      const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const now = new Date();
+      const stamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+        "-",
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0")
+      ].join("");
+      link.href = url;
+      link.download = `roulette-settings-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage(`${rows.length - 1}件のデータをCSVで出力しました。`, "success");
+    }
+
+    function openImportModal() {
+      if (isFilterLocked()) {
+        return;
+      }
+      importModal.hidden = false;
+      closeImportModalButton.focus();
+    }
+
+    function closeImportModal() {
+      importModal.hidden = true;
+      importButton.focus();
+    }
+
+    function importCsvText(text, fileName) {
+      const rows = parseCsv(text);
+      if (rows.length < 2) {
+        throw new Error("CSVに読み込めるデータ行がありません。");
+      }
+
+      const headers = rows[0];
+      const columns = {
+        candidate: findCsvColumn(headers, CSV_COLUMN_ALIASES.candidate),
+        genre: findCsvColumn(headers, CSV_COLUMN_ALIASES.genre),
+        ratio: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratio),
+        visible: findCsvColumn(headers, CSV_COLUMN_ALIASES.visible),
+        selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected)
+      };
+
+      if (columns.candidate === -1) {
+        throw new Error("CSVの見出しに必須列「候補」がありません。");
+      }
+
+      const activeByGenre = new Map();
+      const importedSelectedItems = [];
+      const importedSettings = new Map();
+      let importedCount = 0;
+
+      rows.slice(1).forEach((row, rowIndex) => {
+        const rowNumber = rowIndex + 2;
+        const candidateValue = String(row[columns.candidate] ?? "").trim();
+        const rowHasOtherValues = row.some((value, index) => index !== columns.candidate && String(value ?? "").trim() !== "");
+
+        if (!candidateValue) {
+          if (rowHasOtherValues) {
+            throw new Error(`${rowNumber}行目の候補が空欄です。`);
+          }
+          return;
+        }
+
+        const genre = columns.genre === -1 ? "" : normalizeGenreName(row[columns.genre]);
+        const filterKey = getFilterKeyFromGenre(genre);
+        const ratioCell = columns.ratio === -1 ? "" : row[columns.ratio];
+        const visibleCell = columns.visible === -1 ? "" : row[columns.visible];
+        const selectedCell = columns.selected === -1 ? "" : row[columns.selected];
+
+        if (!importedSettings.has(filterKey)) {
+          importedSettings.set(filterKey, { visible: true, ratio: 1 });
+        }
+        const setting = importedSettings.get(filterKey);
+
+        if (String(ratioCell ?? "").trim() !== "") {
+          setting.ratio = parseCsvRatio(ratioCell, rowNumber);
+        }
+        if (String(visibleCell ?? "").trim() !== "") {
+          setting.visible = parseCsvBoolean(visibleCell, true, "visible", rowNumber);
+        }
+
+        const isSelected = parseCsvBoolean(selectedCell, false, "selected", rowNumber);
+        const importedCandidate = {
+          groupId: null,
+          filterKey,
+          genre,
+          value: candidateValue,
+          savedRatio: setting.ratio,
+          savedVisible: setting.visible
+        };
+
+        if (isSelected) {
+          importedSelectedItems.push(importedCandidate);
+        } else {
+          if (!activeByGenre.has(filterKey)) {
+            activeByGenre.set(filterKey, {
+              genre,
+              values: [],
+              uniqueValues: new Set()
+            });
+          }
+          const activeGroup = activeByGenre.get(filterKey);
+          if (!activeGroup.uniqueValues.has(candidateValue)) {
+            activeGroup.uniqueValues.add(candidateValue);
+            activeGroup.values.push(candidateValue);
+          }
+        }
+
+        importedCount += 1;
+      });
+
+      if (importedCount === 0) {
+        throw new Error("CSVに候補データがありません。");
+      }
+
+      inputGroups = [...activeByGenre.values()].map((group) =>
+        createGroup(group.genre, group.values.join("\n"))
+      );
+      if (inputGroups.length === 0) {
+        inputGroups = [createGroup()];
+      }
+
+      filterSettings = importedSettings;
+      selectedItems = importedSelectedItems;
+      allCandidates = buildCandidates();
+      selectedItems = selectedItems.map((candidate) => ({
+        ...candidate,
+        savedRatio: getFilterSetting(candidate.filterKey).ratio,
+        savedVisible: getFilterSetting(candidate.filterKey).visible
+      }));
+      syncFilterSettings();
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderInputGroups();
+      renderState();
+      drawWheel(0);
+      setMessage(`「${fileName}」から${importedCount}件を復元しました。`, "success");
+    }
+
     inputGroupsContainer.addEventListener("input", (event) => {
       const wrapper = event.target.closest(".input-group");
       const field = event.target.dataset.field;
@@ -1567,6 +2080,39 @@
       }
 
       updateGenreRatio(item.dataset.filterKey, ratioInput.value);
+    });
+
+    importButton.addEventListener("click", openImportModal);
+    exportButton.addEventListener("click", exportCsv);
+    closeImportModalButton.addEventListener("click", closeImportModal);
+    chooseCsvButton.addEventListener("click", () => {
+      closeImportModal();
+      csvFileInput.click();
+    });
+    importModal.addEventListener("click", (event) => {
+      if (event.target === importModal) {
+        closeImportModal();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !importModal.hidden) {
+        closeImportModal();
+      }
+    });
+    csvFileInput.addEventListener("change", async () => {
+      const [file] = csvFileInput.files;
+      if (!file) {
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        importCsvText(text, file.name);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "CSVの読み込みに失敗しました。", "error");
+      } finally {
+        csvFileInput.value = "";
+      }
     });
 
     showAllGenresButton.addEventListener("click", () => applyAllGenreVisibility(true));
