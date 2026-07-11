@@ -1012,8 +1012,66 @@
 
     .selected-footer {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
       margin-top: 16px;
+    }
+
+    .selected-export-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .selected-export-button,
+    .selected-share-button {
+      min-height: 40px;
+      border: 1px solid #c6d8f0;
+      border-radius: 11px;
+      padding: 8px 14px;
+      color: #184f86;
+      background: #edf4fd;
+      font-size: 14px;
+      font-weight: 800;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .selected-export-button:not(:disabled):hover,
+    .selected-share-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: #83b0e4;
+      background: #dfeefd;
+    }
+
+    .selected-export-button:disabled,
+    .selected-share-button:disabled {
+      border-color: #d5d9df;
+      color: #9ba2ad;
+      background: #eef0f3;
+      cursor: not-allowed;
+    }
+
+    .selected-share-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 48px;
+      padding-inline: 12px;
+    }
+
+    .selected-share-button svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
     }
 
     .revive-all-button {
@@ -1224,6 +1282,19 @@
             </div>
             <div id="selectedGroups" class="selected-groups"></div>
             <div class="selected-footer">
+              <div class="selected-export-actions" aria-label="選択済み一覧の画像出力操作">
+                <button id="saveSelectedImageButton" class="selected-export-button" type="button">保存</button>
+                <button id="copySelectedImageButton" class="selected-export-button" type="button">コピー</button>
+                <button id="shareSelectedImageButton" class="selected-share-button" type="button" aria-label="選択済み一覧を共有" title="選択済み一覧を共有">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 8l-6 4 6 4"></path>
+                    <path d="M6.5 12h8.25"></path>
+                    <path d="M15.5 4.75a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5Z"></path>
+                    <path d="M15.5 13.75a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5Z"></path>
+                  </svg>
+                  <span>共有</span>
+                </button>
+              </div>
               <button id="reviveAllButton" class="revive-all-button" type="button" disabled>全復活</button>
             </div>
           </section>
@@ -1355,6 +1426,9 @@
     const genreCount = document.getElementById("genreCount");
     const selectedCount = document.getElementById("selectedCount");
     const reviveAllButton = document.getElementById("reviveAllButton");
+    const saveSelectedImageButton = document.getElementById("saveSelectedImageButton");
+    const copySelectedImageButton = document.getElementById("copySelectedImageButton");
+    const shareSelectedImageButton = document.getElementById("shareSelectedImageButton");
     const resultValue = document.getElementById("resultValue");
     const message = document.getElementById("message");
     const actionControls = document.getElementById("actionControls");
@@ -1575,6 +1649,277 @@
       const visibleRemainingCount = allCandidates.filter(isCandidateGenreVisible).length;
       remainingCandidateCount.textContent = String(visibleRemainingCount);
       totalCandidateCount.textContent = String(getVisibleOverallUniqueCandidateCount());
+    }
+
+    function getSelectedUniqueCount() {
+      return selectedItems.length;
+    }
+
+    function formatExportDate(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${year}/${month}/${day} ${hours}:${minutes}`;
+    }
+
+    function createSelectedImageFileName(date = new Date()) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const seconds = String(date.getSeconds()).padStart(2, "0");
+      return `selected-items-${year}${month}${day}-${hours}${minutes}${seconds}.png`;
+    }
+
+    function wrapCanvasText(ctx, text, maxWidth) {
+      const value = String(text ?? "");
+      const lines = [];
+      let currentLine = "";
+
+      for (const character of value) {
+        const nextLine = currentLine + character;
+        if (currentLine && ctx.measureText(nextLine).width > maxWidth) {
+          lines.push(currentLine);
+          currentLine = character;
+        } else {
+          currentLine = nextLine;
+        }
+      }
+
+      if (currentLine || lines.length === 0) {
+        lines.push(currentLine || "");
+      }
+
+      return lines;
+    }
+
+    async function generateSelectedItemsImageBlob() {
+      if (selectedItems.length === 0) {
+        throw new Error("選択済み候補がありません");
+      }
+
+      const snapshotDate = new Date();
+      const totalSelectedCount = getSelectedTotalCount();
+      const uniqueSelectedCount = getSelectedUniqueCount();
+      const groupedEntries = [...aggregateByGenre(selectedItems).entries()].map(([genre, values]) => ({
+        genre,
+        values
+      }));
+
+      const width = 1080;
+      const paddingX = 72;
+      const paddingTop = 72;
+      const paddingBottom = 72;
+      const contentWidth = width - paddingX * 2;
+      const titleFont = "700 42px sans-serif";
+      const metaFont = "500 24px sans-serif";
+      const sectionFont = "700 30px sans-serif";
+      const itemFont = "500 26px sans-serif";
+      const lineHeightMeta = 36;
+      const lineHeightItem = 38;
+      const accentColor = "#1f6f50";
+      const textColor = "#173a2f";
+      const subtleColor = "#5f716a";
+
+      const measureCanvas = document.createElement("canvas");
+      const measureContext = measureCanvas.getContext("2d");
+      const operations = [];
+      let y = paddingTop;
+
+      function addTextBlock(text, options = {}) {
+        const {
+          font = itemFont,
+          color = textColor,
+          x = paddingX,
+          maxWidth = contentWidth,
+          lineHeight = lineHeightItem,
+          align = "left",
+          topMargin = 0
+        } = options;
+
+        measureContext.font = font;
+        const lines = wrapCanvasText(measureContext, text, maxWidth);
+        y += topMargin;
+        operations.push({ type: "text", lines, font, color, x, y, lineHeight, align });
+        y += lines.length * lineHeight;
+      }
+
+      function addDivider(topMargin = 24, bottomMargin = 24) {
+        y += topMargin;
+        operations.push({ type: "divider", y });
+        y += bottomMargin;
+      }
+
+      addTextBlock("選択済み一覧", {
+        font: titleFont,
+        color: accentColor,
+        align: "center",
+        x: width / 2,
+        maxWidth: contentWidth,
+        lineHeight: 52
+      });
+      addTextBlock(`日付：${formatExportDate(snapshotDate)}`, {
+        font: metaFont,
+        color: subtleColor,
+        align: "center",
+        x: width / 2,
+        maxWidth: contentWidth,
+        lineHeight: lineHeightMeta,
+        topMargin: 10
+      });
+      addTextBlock(`全候補数：${totalSelectedCount} / ${uniqueSelectedCount}`, {
+        font: metaFont,
+        color: subtleColor,
+        align: "center",
+        x: width / 2,
+        maxWidth: contentWidth,
+        lineHeight: lineHeightMeta,
+        topMargin: 4
+      });
+
+      addDivider(24, 28);
+
+      groupedEntries.forEach((group, groupIndex) => {
+        if (groupIndex > 0) {
+          addDivider(20, 24);
+        }
+
+        addTextBlock(displayGenre(group.genre), {
+          font: sectionFont,
+          color: accentColor,
+          lineHeight: 42
+        });
+
+        group.values.forEach((candidate) => {
+          const selectionCount = Math.max(1, Number(candidate.count) || 1);
+          const candidateLabel = selectionCount > 1
+            ? `・${candidate.value}（${selectionCount}回）`
+            : `・${candidate.value}`;
+          addTextBlock(candidateLabel, {
+            font: itemFont,
+            color: textColor,
+            x: paddingX + 10,
+            maxWidth: contentWidth - 10,
+            lineHeight: lineHeightItem,
+            topMargin: 10
+          });
+        });
+      });
+
+      const height = Math.max(640, Math.ceil(y + paddingBottom));
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = width;
+      exportCanvas.height = height;
+      const exportContext = exportCanvas.getContext("2d");
+
+      exportContext.fillStyle = "#f6fbf8";
+      exportContext.fillRect(0, 0, width, height);
+      exportContext.fillStyle = "#ffffff";
+      exportContext.fillRect(28, 28, width - 56, height - 56);
+      exportContext.fillStyle = accentColor;
+      exportContext.fillRect(28, 28, width - 56, 14);
+
+      operations.forEach((operation) => {
+        if (operation.type === "divider") {
+          exportContext.strokeStyle = "#d8ebe2";
+          exportContext.lineWidth = 2;
+          exportContext.beginPath();
+          exportContext.moveTo(paddingX, operation.y);
+          exportContext.lineTo(width - paddingX, operation.y);
+          exportContext.stroke();
+          return;
+        }
+
+        exportContext.font = operation.font;
+        exportContext.fillStyle = operation.color;
+        exportContext.textAlign = operation.align;
+        exportContext.textBaseline = "top";
+
+        operation.lines.forEach((line, index) => {
+          exportContext.fillText(line, operation.x, operation.y + index * operation.lineHeight);
+        });
+      });
+
+      const blob = await new Promise((resolve) => exportCanvas.toBlob(resolve, "image/png"));
+      if (!blob) {
+        throw new Error("画像の生成に失敗しました");
+      }
+
+      return {
+        blob,
+        fileName: createSelectedImageFileName(snapshotDate)
+      };
+    }
+
+    function downloadSelectedItemsImage(blob, fileName) {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+
+    async function saveSelectedItemsImage() {
+      try {
+        const { blob, fileName } = await generateSelectedItemsImageBlob();
+        downloadSelectedItemsImage(blob, fileName);
+        setMessage("選択済み一覧の画像を保存しました。", "success");
+      } catch (error) {
+        setMessage(error?.message || "画像の保存に失敗しました。", "error");
+      }
+    }
+
+    async function copySelectedItemsImage() {
+      try {
+        const { blob, fileName } = await generateSelectedItemsImageBlob();
+
+        if (window.ClipboardItem && navigator.clipboard?.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ [blob.type]: blob })
+          ]);
+          setMessage("選択済み一覧の画像をコピーしました。", "success");
+          return;
+        }
+
+        downloadSelectedItemsImage(blob, fileName);
+        setMessage("画像コピーに対応していないため、画像を保存しました。", "success");
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        setMessage(error?.message || "画像のコピーに失敗しました。", "error");
+      }
+    }
+
+    async function shareSelectedItemsImage() {
+      try {
+        const { blob, fileName } = await generateSelectedItemsImageBlob();
+        const file = new File([blob], fileName, { type: blob.type || "image/png" });
+
+        if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+          await navigator.share({
+            title: "選択済み一覧",
+            text: "選択済み一覧を共有します。",
+            files: [file]
+          });
+          setMessage("選択済み一覧の画像を共有しました。", "success");
+          return;
+        }
+
+        downloadSelectedItemsImage(blob, fileName);
+        setMessage("共有に対応していないため、画像を保存しました。", "success");
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+        setMessage(error?.message || "画像の共有に失敗しました。", "error");
+      }
     }
 
     function addSelectedItem(candidate, count = 1) {
@@ -1837,10 +2182,14 @@
       selectedCount.textContent = getSelectedTotalCount();
 
       const locked = isFilterLocked();
+      const hasSelectedItems = selectedItems.length > 0;
       const restorableCount = selectedItems.filter(
         (candidate) => !candidateAlreadyExistsInGenre(candidate)
       ).length;
       reviveAllButton.disabled = locked || restorableCount === 0;
+      saveSelectedImageButton.disabled = !hasSelectedItems;
+      copySelectedImageButton.disabled = !hasSelectedItems;
+      shareSelectedImageButton.disabled = !hasSelectedItems;
       reviveAllButton.title = restorableCount === 0
         ? "すべての選択済み候補が復活中です"
         : `未復活の${restorableCount}件をルーレット候補へ戻す`;
@@ -3040,6 +3389,9 @@
       }
     });
     soundToggleButton.addEventListener("click", toggleSound);
+    saveSelectedImageButton.addEventListener("click", saveSelectedItemsImage);
+    copySelectedImageButton.addEventListener("click", copySelectedItemsImage);
+    shareSelectedImageButton.addEventListener("click", shareSelectedItemsImage);
     spinButton.addEventListener("click", spinRoulette);
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
