@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>選択済み統合・ジャンル全件表示対応ルーレット v15</title>
+  <title>結果音対応ルーレット v17</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -721,6 +721,38 @@
       overflow-wrap: anywhere;
     }
 
+    .selected-candidate-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .selected-candidate-name {
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .revive-button {
+      flex: 0 0 auto;
+      min-height: 32px;
+      border: 1px solid #a9d7c3;
+      border-radius: 9px;
+      padding: 5px 10px;
+      color: #1f6f50;
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .revive-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: #6fb795;
+      background: #eaf7f0;
+    }
+
     .empty-state {
       grid-column: 1 / -1;
       padding: 28px;
@@ -825,7 +857,7 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">比率切替・CSV保存・サウンド対応版</div>
+      <div class="version-note">候補復活・比率切替・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率をオフにすると、表示中の全候補が同じ確率になります。CSVで設定全体を保存・復元できます。</p>
     </header>
 
@@ -977,6 +1009,10 @@
     const spinSound = new Audio("roulette-spin.wav");
     spinSound.preload = "auto";
     spinSound.loop = false;
+
+    const resultSound = new Audio("roulette-result.wav");
+    resultSound.preload = "auto";
+    resultSound.loop = false;
 
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
@@ -1352,7 +1388,28 @@
 
         values.forEach((candidate) => {
           const item = document.createElement("li");
-          item.textContent = candidate.value;
+
+          const row = document.createElement("div");
+          row.className = "selected-candidate-row";
+
+          const name = document.createElement("span");
+          name.className = "selected-candidate-name";
+          name.textContent = candidate.value;
+
+          const reviveButton = document.createElement("button");
+          reviveButton.className = "revive-button";
+          reviveButton.type = "button";
+          reviveButton.textContent = "復活";
+          reviveButton.disabled = isFilterLocked();
+          reviveButton.setAttribute(
+            "aria-label",
+            `${formatResult(candidate)}をルーレット候補へ戻す`
+          );
+          reviveButton.title = "選択前の候補へ戻す";
+          reviveButton.addEventListener("click", () => reviveSelectedItem(candidate));
+
+          row.append(name, reviveButton);
+          item.appendChild(row);
           list.appendChild(item);
         });
 
@@ -1555,12 +1612,34 @@
       spinSound.currentTime = 0;
     }
 
+    function playResultSound() {
+      if (!soundEnabled) {
+        return;
+      }
+
+      resultSound.pause();
+      resultSound.currentTime = 0;
+
+      const playPromise = resultSound.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // 音声ファイルが未配置、またはブラウザに再生を拒否された場合も処理は続行します。
+        });
+      }
+    }
+
+    function stopResultSound() {
+      resultSound.pause();
+      resultSound.currentTime = 0;
+    }
+
     function toggleSound() {
       soundEnabled = !soundEnabled;
       renderSoundToggle();
 
       if (!soundEnabled) {
         stopSpinSound();
+        stopResultSound();
         return;
       }
 
@@ -1581,6 +1660,7 @@
 
       spinning = true;
       resetResult();
+      stopResultSound();
       startSpinSound();
       setMessage("抽選中です…");
       spinButton.disabled = true;
@@ -1588,6 +1668,7 @@
       resetButton.disabled = true;
       setInputControlsDisabled(true);
       renderGenres();
+      renderSelectedItems();
 
       const chosenSegment = selectWeightedSegment(segments);
       const chosenIndex = chosenSegment.candidateIndex;
@@ -1617,6 +1698,7 @@
         stopSpinSound();
         currentResultIndex = chosenIndex;
         resultValue.textContent = formatResult(candidates[chosenIndex]);
+        playResultSound();
         spinning = false;
         applyButton.disabled = false;
         resetButton.disabled = false;
@@ -1670,6 +1752,68 @@
       setMessage(`「${formatResult(decided)}」を選択済みに移動しました。`, "success");
     }
 
+    function findRevivalTargetGroup(candidate) {
+      const normalizedGenre = normalizeGenreName(candidate.genre);
+
+      const matchingGroup = inputGroups.find(
+        (group) => normalizeGenreName(group.genre) === normalizedGenre
+      );
+      if (matchingGroup) {
+        return matchingGroup;
+      }
+
+      const newGroup = createGroup(normalizedGenre, "");
+      inputGroups.push(newGroup);
+      return newGroup;
+    }
+
+    function candidateAlreadyExistsInGenre(candidate) {
+      const normalizedGenre = normalizeGenreName(candidate.genre);
+
+      return inputGroups.some((group) => {
+        if (normalizeGenreName(group.genre) !== normalizedGenre) {
+          return false;
+        }
+        return normalizeItems(group.itemsText).includes(candidate.value);
+      });
+    }
+
+    function reviveSelectedItem(candidate) {
+      if (isFilterLocked()) {
+        return;
+      }
+
+      const selectedIndex = selectedItems.indexOf(candidate);
+      if (selectedIndex === -1) {
+        return;
+      }
+
+      const alreadyExists = candidateAlreadyExistsInGenre(candidate);
+      if (!alreadyExists) {
+        const targetGroup = findRevivalTargetGroup(candidate);
+        const values = normalizeItems(targetGroup.itemsText);
+        values.push(candidate.value);
+        targetGroup.itemsText = values.join("\n");
+      }
+
+      selectedItems.splice(selectedIndex, 1);
+      allCandidates = buildCandidates();
+      syncFilterSettings();
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderInputGroups();
+      renderState();
+      drawWheel(0);
+
+      setMessage(
+        alreadyExists
+          ? `「${formatResult(candidate)}」は候補に登録済みのため、選択済み一覧から外しました。`
+          : `「${formatResult(candidate)}」を候補へ復活させました。`,
+        "success"
+      );
+    }
+
     function holdResult() {
       if (currentResultIndex === null || !candidates[currentResultIndex]) {
         return;
@@ -1710,6 +1854,8 @@
     }
 
     function resetAll() {
+      stopSpinSound();
+      stopResultSound();
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
       ratioEnabled = true;
