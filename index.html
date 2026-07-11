@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>結果音対応ルーレット v17</title>
+  <title>追加入力で加速できるルーレット v19</title>
   <style>
     :root {
       --bg: #f5f7fb;
@@ -857,8 +857,8 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">候補復活・比率切替・CSV保存・サウンド対応版</div>
-      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。比率をオフにすると、表示中の全候補が同じ確率になります。CSVで設定全体を保存・復元できます。</p>
+      <div class="version-note">追加入力加速・候補復活・比率切替・CSV保存・サウンド対応版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
     <div class="main-grid">
@@ -941,6 +941,19 @@
 
     const NO_GENRE_KEY = "__no-genre__";
     const MIN_RATIO = 0.1;
+
+    // 回転速度はラジアン毎秒で管理します。
+    // 初回クリックは以前より大幅に強くし、追加クリックも広い範囲で回転力が変化します。
+    // 最大速度は約6.7回転/秒のまま維持し、描画負荷と操作性を両立します。
+    const INITIAL_SPIN_IMPULSE_MIN = 22;
+    const INITIAL_SPIN_IMPULSE_MAX = 36;
+    const ADDITIONAL_SPIN_IMPULSE_MIN = 5.5;
+    const ADDITIONAL_SPIN_IMPULSE_MAX = 16;
+    const MAX_ANGULAR_VELOCITY = 42;
+    const ANGULAR_VELOCITY_RETAINED_PER_SECOND = 0.5;
+    const LOW_SPEED_FRICTION = 0.08;
+    const STOP_ANGULAR_VELOCITY = 0.18;
+    const MAX_FRAME_DELTA_SECONDS = 0.05;
 
     const COLORS = [
       "#5B5BD6",
@@ -1025,6 +1038,9 @@
     let spinning = false;
     let ratioEnabled = true;
     let soundEnabled = true;
+    let angularVelocity = 0;
+    let spinAnimationFrameId = null;
+    let lastSpinFrameTime = null;
 
     function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
@@ -1167,7 +1183,15 @@
       decisionButton.hidden = !waitingForDecision;
       holdButton.hidden = !waitingForDecision;
 
-      spinButton.disabled = spinning || candidates.length === 0 || currentResultIndex !== null;
+      // 回転中もボタンを押せる状態にし、追加クリックを回転力として加算します。
+      spinButton.disabled = candidates.length === 0 || currentResultIndex !== null;
+      spinButton.textContent = spinning ? "さらに回す" : "ルーレットを回す";
+      spinButton.setAttribute(
+        "aria-label",
+        spinning ? "ルーレットへ回転力を追加する" : "ルーレットを回す"
+      );
+      spinButton.title = spinning ? "押すたびに回転速度が上がります" : "ルーレットを回します";
+
       decisionButton.disabled = !waitingForDecision;
       holdButton.disabled = !waitingForDecision;
 
@@ -1570,14 +1594,21 @@
       context.restore();
     }
 
-    function easeOutCubic(value) {
-      return 1 - Math.pow(1 - value, 3);
+    function normalizeAngle(angle) {
+      const fullRotation = Math.PI * 2;
+      return ((angle % fullRotation) + fullRotation) % fullRotation;
     }
 
-    function selectWeightedSegment(segments) {
-      const randomAngle = Math.random() * Math.PI * 2;
+    function getSegmentAtPointer(segments, rotation) {
+      if (segments.length === 0) {
+        return null;
+      }
+
+      // 針はルーレット上部に固定されています。
+      // ルーレットの回転角度を逆向きに戻すことで、針が指す扇形のローカル角度を求めます。
+      const pointerAngle = normalizeAngle(-rotation);
       return segments.find(
-        (segment) => randomAngle >= segment.start && randomAngle < segment.start + segment.angle
+        (segment) => pointerAngle >= segment.start && pointerAngle < segment.start + segment.angle
       ) || segments[segments.length - 1];
     }
 
@@ -1648,8 +1679,23 @@
       }
     }
 
+    function getRandomSpinImpulse(minImpulse, maxImpulse) {
+      return minImpulse + Math.random() * (maxImpulse - minImpulse);
+    }
+
+    function addSpinImpulse() {
+      const impulse = spinning
+        ? getRandomSpinImpulse(ADDITIONAL_SPIN_IMPULSE_MIN, ADDITIONAL_SPIN_IMPULSE_MAX)
+        : getRandomSpinImpulse(INITIAL_SPIN_IMPULSE_MIN, INITIAL_SPIN_IMPULSE_MAX);
+
+      angularVelocity = Math.min(
+        MAX_ANGULAR_VELOCITY,
+        angularVelocity + impulse
+      );
+    }
+
     function spinRoulette() {
-      if (spinning || candidates.length === 0 || currentResultIndex !== null) {
+      if (candidates.length === 0 || currentResultIndex !== null) {
         return;
       }
 
@@ -1658,46 +1704,91 @@
         return;
       }
 
+      // 回転中のクリックは、新しいアニメーションを作らず現在速度へ回転力を加えます。
+      if (spinning) {
+        addSpinImpulse();
+        setMessage("回転力を追加しました。続けて押すと、さらに加速します。");
+        renderActionButtons();
+        return;
+      }
+
       spinning = true;
+      angularVelocity = 0;
+      addSpinImpulse();
       resetResult();
       stopResultSound();
       startSpinSound();
-      setMessage("抽選中です…");
-      spinButton.disabled = true;
+      setMessage("抽選中です。ボタンを押すと回転力を追加できます。");
       applyButton.disabled = true;
       resetButton.disabled = true;
       setInputControlsDisabled(true);
       renderGenres();
       renderSelectedItems();
+      renderActionButtons();
 
-      const chosenSegment = selectWeightedSegment(segments);
-      const chosenIndex = chosenSegment.candidateIndex;
-      const targetCenter = chosenSegment.start + chosenSegment.angle / 2;
-      const baseTurns = (6 + Math.floor(Math.random() * 3)) * Math.PI * 2;
-      const currentNormalized = ((currentRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-      const targetNormalized = (Math.PI * 2 - targetCenter) % (Math.PI * 2);
-      const adjustment = (targetNormalized - currentNormalized + Math.PI * 2) % (Math.PI * 2);
-      const targetRotation = currentRotation + baseTurns + adjustment;
-      const startRotation = currentRotation;
-      const duration = 4200;
-      const startTime = performance.now();
+      lastSpinFrameTime = performance.now();
+      let lastDisplayedCandidateIndex = null;
 
-      function animate(now) {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = easeOutCubic(progress);
-        currentRotation = startRotation + (targetRotation - startRotation) * eased;
-        drawWheel(currentRotation);
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
+      function updateSpinningResult() {
+        const pointedSegment = getSegmentAtPointer(segments, currentRotation);
+        if (!pointedSegment || pointedSegment.candidateIndex === lastDisplayedCandidateIndex) {
           return;
         }
 
-        currentRotation = targetRotation;
+        lastDisplayedCandidateIndex = pointedSegment.candidateIndex;
+        resultValue.textContent = formatResult(pointedSegment.candidate);
+      }
+
+      // ボタンを押した直後から、現在針が指している候補を表示します。
+      updateSpinningResult();
+
+      function animate(now) {
+        const elapsedSeconds = Math.min(
+          Math.max((now - lastSpinFrameTime) / 1000, 0),
+          MAX_FRAME_DELTA_SECONDS
+        );
+        lastSpinFrameTime = now;
+
+        currentRotation = normalizeAngle(
+          currentRotation + angularVelocity * elapsedSeconds
+        );
+
+        // 速度に依存する減衰と低速域の摩擦を組み合わせ、自然に停止させます。
+        angularVelocity *= Math.pow(
+          ANGULAR_VELOCITY_RETAINED_PER_SECOND,
+          elapsedSeconds
+        );
+        angularVelocity = Math.max(
+          0,
+          angularVelocity - LOW_SPEED_FRICTION * elapsedSeconds
+        );
+
+        drawWheel(currentRotation);
+        updateSpinningResult();
+
+        if (angularVelocity > STOP_ANGULAR_VELOCITY) {
+          spinAnimationFrameId = requestAnimationFrame(animate);
+          return;
+        }
+
+        angularVelocity = 0;
+        spinAnimationFrameId = null;
+        lastSpinFrameTime = null;
         stopSpinSound();
-        currentResultIndex = chosenIndex;
-        resultValue.textContent = formatResult(candidates[chosenIndex]);
+
+        const finalSegment = getSegmentAtPointer(segments, currentRotation);
+        if (!finalSegment) {
+          spinning = false;
+          applyButton.disabled = false;
+          resetButton.disabled = false;
+          setInputControlsDisabled(false);
+          renderState();
+          setMessage("抽選結果を取得できませんでした。もう一度お試しください。", "error");
+          return;
+        }
+
+        currentResultIndex = finalSegment.candidateIndex;
+        resultValue.textContent = formatResult(finalSegment.candidate);
         playResultSound();
         spinning = false;
         applyButton.disabled = false;
@@ -1707,7 +1798,7 @@
         setMessage("「決定」または「保留」を選んでください。");
       }
 
-      requestAnimationFrame(animate);
+      spinAnimationFrameId = requestAnimationFrame(animate);
     }
 
     function removeCandidateFromInput(candidate) {
