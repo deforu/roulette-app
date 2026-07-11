@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ルーレット</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: rgba(255, 255, 255, 0.92);
+      --text: #202431;
+      --muted: #6d7485;
+      --line: #dfe4ee;
+      --primary: #5b5bd6;
+      --primary-dark: #4747b8;
+      --danger: #d9534f;
+      --success: #25875f;
+      --shadow: 0 18px 48px rgba(41, 49, 75, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(91, 91, 214, 0.13), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(37, 135, 95, 0.10), transparent 32%),
+        var(--bg);
+    }
+
+    button,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: 0.02em;
+    }
+
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid rgba(223, 228, 238, 0.9);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .roulette-panel {
+      padding: 28px;
+    }
+
+    .wheel-area {
+      position: relative;
+      width: min(560px, 100%);
+      margin: 0 auto;
+      padding-top: 8px;
+    }
+
+    .pointer {
+      position: absolute;
+      z-index: 5;
+      top: 0;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 18px solid transparent;
+      border-right: 18px solid transparent;
+      border-top: 38px solid #242735;
+      filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.2));
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      padding: 10px;
+      background: linear-gradient(145deg, #ffffff, #dfe4ee);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+        0 18px 34px rgba(31, 37, 55, 0.18);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .result-card {
+      margin-top: 24px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #ffffff;
+      text-align: center;
+    }
+
+    .result-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .result-value {
+      min-height: 48px;
+      margin-top: 6px;
+      display: grid;
+      place-items: center;
+      font-size: clamp(24px, 5vw, 38px);
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .button {
+      min-height: 52px;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 18px;
+      font-weight: 800;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .button:not(:disabled):hover {
+      transform: translateY(-2px);
+    }
+
+    .button-primary {
+      color: #ffffff;
+      background: var(--primary);
+      box-shadow: 0 10px 20px rgba(91, 91, 214, 0.28);
+    }
+
+    .button-primary:not(:disabled):hover {
+      background: var(--primary-dark);
+    }
+
+    .button-decision {
+      color: #ffffff;
+      background: var(--success);
+    }
+
+    .button-hold {
+      color: #4f5668;
+      background: #edf0f5;
+      border: 1px solid #d9deea;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 18px;
+    }
+
+    .settings-panel,
+    .candidate-panel {
+      padding: 22px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .count-badge {
+      min-width: 34px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #ffffff;
+      background: var(--primary);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      color: var(--text);
+      background: #ffffff;
+      line-height: 1.7;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(91, 91, 214, 0.12);
+    }
+
+    .helper {
+      margin: 10px 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .settings-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+
+    .button-apply {
+      color: #ffffff;
+      background: #343847;
+    }
+
+    .button-reset {
+      color: var(--danger);
+      background: #fff5f4;
+      border: 1px solid #f3cfcd;
+    }
+
+    .candidate-list,
+    .selected-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 9px;
+    }
+
+    .candidate-list {
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .item-number {
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: var(--primary);
+      background: rgba(91, 91, 214, 0.11);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .item-text {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+
+    .selected-section {
+      margin-top: 24px;
+      padding: 24px;
+    }
+
+    .selected-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .selected-header h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .selected-list {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    }
+
+    .selected-list .list-item {
+      border-color: #cfe6dc;
+      background: #f5fbf8;
+    }
+
+    .selected-list .item-number {
+      color: #ffffff;
+      background: var(--success);
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      padding: 28px;
+      border: 1px dashed #cbd1dd;
+      border-radius: 14px;
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    .message {
+      min-height: 24px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .message.success {
+      color: var(--success);
+    }
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        width: min(100% - 20px, 1180px);
+        padding-top: 24px;
+      }
+
+      .roulette-panel,
+      .settings-panel,
+      .candidate-panel,
+      .selected-section {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .button-primary {
+        grid-column: 1 / -1;
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .settings-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <h1>ルーレット</h1>
+      <p>ルーレットを回し、結果を「決定」すると候補から削除されます。「保留」では候補を残したまま再抽選できます。</p>
+    </header>
+
+    <div class="main-grid">
+      <section class="panel roulette-panel" aria-label="ルーレット">
+        <div class="wheel-area">
+          <div class="pointer" aria-hidden="true"></div>
+          <div class="canvas-wrap">
+            <canvas id="wheelCanvas" width="900" height="900"></canvas>
+          </div>
+        </div>
+
+        <div class="result-card" aria-live="polite">
+          <div class="result-label">選択結果</div>
+          <div id="resultValue" class="result-value">まだ選択されていません</div>
+        </div>
+
+        <div class="controls">
+          <button id="spinButton" class="button button-primary" type="button">ルーレットを回す</button>
+          <button id="decisionButton" class="button button-decision" type="button" disabled>決定</button>
+          <button id="holdButton" class="button button-hold" type="button" disabled>保留</button>
+        </div>
+        <div id="message" class="message" aria-live="polite"></div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel settings-panel">
+          <div class="panel-title">
+            <h2>候補を編集</h2>
+          </div>
+          <textarea id="itemsInput" aria-label="ルーレット候補"></textarea>
+          <p class="helper">1行につき1つの候補を入力してください。空行と重複項目は自動で除外します。</p>
+          <div class="settings-actions">
+            <button id="applyButton" class="button button-apply" type="button">候補を反映</button>
+            <button id="resetButton" class="button button-reset" type="button">初期化</button>
+          </div>
+        </section>
+
+        <section class="panel candidate-panel">
+          <div class="panel-title">
+            <h2>現在の候補</h2>
+            <span id="candidateCount" class="count-badge">0</span>
+          </div>
+          <ul id="candidateList" class="candidate-list"></ul>
+        </section>
+      </aside>
+    </div>
+
+    <section class="panel selected-section">
+      <div class="selected-header">
+        <h2>選択済み</h2>
+        <span id="selectedCount" class="count-badge">0</span>
+      </div>
+      <ul id="selectedList" class="selected-list"></ul>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_ITEMS = [
+      "A案",
+      "B案",
+      "C案",
+      "D案",
+      "E案",
+      "F案"
+    ];
+
+    const COLORS = [
+      "#5B5BD6",
+      "#238A70",
+      "#F08A5D",
+      "#D65A7A",
+      "#4C78A8",
+      "#D4A72C",
+      "#845EC2",
+      "#2F8F9D",
+      "#C45D3C",
+      "#667085"
+    ];
+
+    const canvas = document.getElementById("wheelCanvas");
+    const context = canvas.getContext("2d");
+    const itemsInput = document.getElementById("itemsInput");
+    const candidateList = document.getElementById("candidateList");
+    const selectedList = document.getElementById("selectedList");
+    const candidateCount = document.getElementById("candidateCount");
+    const selectedCount = document.getElementById("selectedCount");
+    const resultValue = document.getElementById("resultValue");
+    const message = document.getElementById("message");
+    const spinButton = document.getElementById("spinButton");
+    const decisionButton = document.getElementById("decisionButton");
+    const holdButton = document.getElementById("holdButton");
+    const applyButton = document.getElementById("applyButton");
+    const resetButton = document.getElementById("resetButton");
+
+    let candidates = [...DEFAULT_ITEMS];
+    let selectedItems = [];
+    let currentResultIndex = null;
+    let currentRotation = 0;
+    let spinning = false;
+
+    itemsInput.value = candidates.join("\n");
+
+    function normalizeItems(text) {
+      const unique = new Set();
+
+      return text
+        .split("\n")
+        .map((item) => item.trim())
+        .filter((item) => {
+          if (!item || unique.has(item)) {
+            return false;
+          }
+          unique.add(item);
+          return true;
+        });
+    }
+
+    function setMessage(text = "", type = "") {
+      message.textContent = text;
+      message.className = type ? `message ${type}` : "message";
+    }
+
+    function resetResult() {
+      currentResultIndex = null;
+      resultValue.textContent = "まだ選択されていません";
+      decisionButton.disabled = true;
+      holdButton.disabled = true;
+    }
+
+    function renderList(container, values, emptyText) {
+      container.innerHTML = "";
+
+      if (values.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "empty-state";
+        empty.textContent = emptyText;
+        container.appendChild(empty);
+        return;
+      }
+
+      values.forEach((value, index) => {
+        const item = document.createElement("li");
+        item.className = "list-item";
+
+        const number = document.createElement("span");
+        number.className = "item-number";
+        number.textContent = index + 1;
+
+        const text = document.createElement("span");
+        text.className = "item-text";
+        text.textContent = value;
+
+        item.append(number, text);
+        container.appendChild(item);
+      });
+    }
+
+    function renderLists() {
+      renderList(candidateList, candidates, "候補がありません");
+      renderList(selectedList, selectedItems, "決定した項目がここに表示されます");
+      candidateCount.textContent = candidates.length;
+      selectedCount.textContent = selectedItems.length;
+      spinButton.disabled = spinning || candidates.length === 0;
+    }
+
+    function fitText(text, maxWidth, baseSize) {
+      let size = baseSize;
+      context.font = `700 ${size}px sans-serif`;
+
+      while (context.measureText(text).width > maxWidth && size > 18) {
+        size -= 1;
+        context.font = `700 ${size}px sans-serif`;
+      }
+
+      return size;
+    }
+
+    function drawWheel(rotation = currentRotation) {
+      const width = canvas.width;
+      const height = canvas.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) / 2 - 16;
+
+      context.clearRect(0, 0, width, height);
+      context.save();
+      context.translate(centerX, centerY);
+      context.rotate(rotation);
+
+      if (candidates.length === 0) {
+        context.beginPath();
+        context.arc(0, 0, radius, 0, Math.PI * 2);
+        context.fillStyle = "#e7eaf0";
+        context.fill();
+        context.fillStyle = "#6d7485";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.font = "700 34px sans-serif";
+        context.fillText("候補がありません", 0, 0);
+        context.restore();
+        return;
+      }
+
+      const arc = (Math.PI * 2) / candidates.length;
+
+      candidates.forEach((item, index) => {
+        const startAngle = index * arc - Math.PI / 2;
+        const endAngle = startAngle + arc;
+
+        context.beginPath();
+        context.moveTo(0, 0);
+        context.arc(0, 0, radius, startAngle, endAngle);
+        context.closePath();
+        context.fillStyle = COLORS[index % COLORS.length];
+        context.fill();
+
+        context.strokeStyle = "rgba(255, 255, 255, 0.82)";
+        context.lineWidth = 5;
+        context.stroke();
+
+        context.save();
+        context.rotate(startAngle + arc / 2);
+        context.translate(radius * 0.63, 0);
+        context.rotate(Math.PI / 2);
+        context.fillStyle = "#ffffff";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        const maxTextWidth = Math.max(110, arc * radius * 0.78);
+        const fontSize = fitText(item, maxTextWidth, candidates.length > 12 ? 24 : 31);
+        context.font = `700 ${fontSize}px sans-serif`;
+        context.shadowColor = "rgba(0, 0, 0, 0.25)";
+        context.shadowBlur = 5;
+        context.fillText(item, 0, 0, maxTextWidth);
+        context.restore();
+      });
+
+      context.beginPath();
+      context.arc(0, 0, radius * 0.12, 0, Math.PI * 2);
+      context.fillStyle = "#ffffff";
+      context.fill();
+      context.lineWidth = 10;
+      context.strokeStyle = "rgba(32, 36, 49, 0.15)";
+      context.stroke();
+
+      context.restore();
+    }
+
+    function easeOutCubic(value) {
+      return 1 - Math.pow(1 - value, 3);
+    }
+
+    function spinRoulette() {
+      if (spinning || candidates.length === 0) {
+        return;
+      }
+
+      spinning = true;
+      resetResult();
+      setMessage("抽選中です…");
+      spinButton.disabled = true;
+      applyButton.disabled = true;
+      resetButton.disabled = true;
+      itemsInput.disabled = true;
+
+      const chosenIndex = Math.floor(Math.random() * candidates.length);
+      const arc = (Math.PI * 2) / candidates.length;
+      const targetCenter = chosenIndex * arc + arc / 2;
+      const baseTurns = (6 + Math.floor(Math.random() * 3)) * Math.PI * 2;
+      const currentNormalized = ((currentRotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const targetNormalized = (Math.PI * 2 - targetCenter) % (Math.PI * 2);
+      const adjustment = (targetNormalized - currentNormalized + Math.PI * 2) % (Math.PI * 2);
+      const targetRotation = currentRotation + baseTurns + adjustment;
+      const startRotation = currentRotation;
+      const duration = 4200;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = easeOutCubic(progress);
+        currentRotation = startRotation + (targetRotation - startRotation) * eased;
+        drawWheel(currentRotation);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+          return;
+        }
+
+        currentRotation = targetRotation;
+        currentResultIndex = chosenIndex;
+        resultValue.textContent = candidates[chosenIndex];
+        decisionButton.disabled = false;
+        holdButton.disabled = false;
+        spinning = false;
+        spinButton.disabled = false;
+        applyButton.disabled = false;
+        resetButton.disabled = false;
+        itemsInput.disabled = false;
+        setMessage("「決定」または「保留」を選んでください。");
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function decideResult() {
+      if (currentResultIndex === null || !candidates[currentResultIndex]) {
+        return;
+      }
+
+      const [decided] = candidates.splice(currentResultIndex, 1);
+      selectedItems.push(decided);
+      itemsInput.value = candidates.join("\n");
+      currentRotation = 0;
+      resetResult();
+      renderLists();
+      drawWheel(0);
+      setMessage(`「${decided}」を選択済みに移動しました。`, "success");
+    }
+
+    function holdResult() {
+      if (currentResultIndex === null || !candidates[currentResultIndex]) {
+        return;
+      }
+
+      const heldItem = candidates[currentResultIndex];
+      resetResult();
+      setMessage(`「${heldItem}」は候補に残しました。`);
+    }
+
+    function applyItems() {
+      if (spinning) {
+        return;
+      }
+
+      const nextCandidates = normalizeItems(itemsInput.value);
+
+      if (nextCandidates.length === 0) {
+        setMessage("候補を1件以上入力してください。", "error");
+        return;
+      }
+
+      candidates = nextCandidates;
+      currentRotation = 0;
+      resetResult();
+      renderLists();
+      drawWheel(0);
+      setMessage("候補をルーレットに反映しました。", "success");
+    }
+
+    function resetAll() {
+      candidates = [...DEFAULT_ITEMS];
+      selectedItems = [];
+      currentRotation = 0;
+      itemsInput.value = candidates.join("\n");
+      resetResult();
+      renderLists();
+      drawWheel(0);
+      setMessage("初期状態に戻しました。");
+    }
+
+    spinButton.addEventListener("click", spinRoulette);
+    decisionButton.addEventListener("click", decideResult);
+    holdButton.addEventListener("click", holdResult);
+    applyButton.addEventListener("click", applyItems);
+    resetButton.addEventListener("click", resetAll);
+
+    renderLists();
+    drawWheel();
+  </script>
+</body>
+</html>
