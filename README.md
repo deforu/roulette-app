@@ -1,6 +1,8 @@
 # roulette-app
 ルーレットWebアプリ
 
+[ルーレットアプリのURL](https://roulette-app-git-main-deforus-projects.vercel.app/)
+
 使い方
 1. index.html をブラウザで開きます。
 2. 必要に応じて「候補を編集」に1行1項目で入力し、「候補を反映」を押します。
@@ -12,5 +14,3 @@
 - 保留: 選ばれた項目を候補に残します。
 - 初期化: 候補と選択済み一覧を初期状態へ戻します。
 
-
-https://roulette-grdc3e0yj-deforus-projects.vercel.app/
