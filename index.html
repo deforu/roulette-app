@@ -1363,6 +1363,8 @@
 
     const NO_GENRE_KEY = "__no-genre__";
     const MIN_RATIO = 0.1;
+    const STORAGE_KEY = "roulette-app-state";
+    const STORAGE_VERSION = 1;
 
     // 回転速度はラジアン毎秒で管理します。
     // 初回クリックは以前より大幅に強くし、追加クリックも広い範囲で回転力が変化します。
@@ -1478,6 +1480,8 @@
     let angularVelocity = 0;
     let spinAnimationFrameId = null;
     let lastSpinFrameTime = null;
+    let saveStateTimerId = null;
+    let storageWarningLogged = false;
 
     function createGroup(genre = "", itemsText = "") {
       groupSequence += 1;
@@ -1509,6 +1513,134 @@
 
     function normalizeGenreName(value) {
       return String(value ?? "").trim();
+    }
+
+    function createStoredState() {
+      return {
+        version: STORAGE_VERSION,
+        inputGroups: inputGroups.map((group) => ({
+          genre: group.genre,
+          itemsText: group.itemsText
+        })),
+        filterSettings: [...filterSettings.entries()].map(([filterKey, setting]) => [
+          filterKey,
+          {
+            visible: setting.visible,
+            ratio: setting.ratio
+          }
+        ]),
+        selectedItems: selectedItems.map((candidate) => ({
+          genre: candidate.genre,
+          value: candidate.value,
+          count: Math.max(1, Number(candidate.count) || 1),
+          savedRatio: candidate.savedRatio,
+          savedVisible: candidate.savedVisible
+        })),
+        ratioEnabled,
+        soundEnabled
+      };
+    }
+
+    function reportStorageError(error) {
+      if (storageWarningLogged) {
+        return;
+      }
+      storageWarningLogged = true;
+      console.warn("ブラウザへの自動保存を利用できません。", error);
+    }
+
+    function saveAppState() {
+      if (saveStateTimerId !== null) {
+        window.clearTimeout(saveStateTimerId);
+        saveStateTimerId = null;
+      }
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(createStoredState()));
+      } catch (error) {
+        reportStorageError(error);
+      }
+    }
+
+    function scheduleAppStateSave() {
+      if (saveStateTimerId !== null) {
+        window.clearTimeout(saveStateTimerId);
+      }
+      saveStateTimerId = window.setTimeout(saveAppState, 200);
+    }
+
+    function restoreAppState() {
+      try {
+        const storedValue = localStorage.getItem(STORAGE_KEY);
+        if (!storedValue) {
+          return false;
+        }
+
+        const storedState = JSON.parse(storedValue);
+        if (!storedState || storedState.version !== STORAGE_VERSION) {
+          throw new Error("保存データのバージョンが一致しません。");
+        }
+
+        const restoredGroups = Array.isArray(storedState.inputGroups)
+          ? storedState.inputGroups
+              .filter((group) => group && typeof group === "object")
+              .map((group) => createGroup(
+                String(group.genre ?? ""),
+                String(group.itemsText ?? "")
+              ))
+          : [];
+        inputGroups = restoredGroups.length > 0 ? restoredGroups : createDefaultGroups();
+
+        filterSettings = new Map();
+        if (Array.isArray(storedState.filterSettings)) {
+          storedState.filterSettings.forEach((entry) => {
+            if (!Array.isArray(entry) || typeof entry[0] !== "string" || !entry[1]) {
+              return;
+            }
+            const ratio = Number(entry[1].ratio);
+            filterSettings.set(entry[0], {
+              visible: entry[1].visible !== false,
+              ratio: Number.isFinite(ratio) && ratio > 0 ? Math.max(MIN_RATIO, ratio) : 1
+            });
+          });
+        }
+
+        selectedItems = Array.isArray(storedState.selectedItems)
+          ? storedState.selectedItems.flatMap((candidate) => {
+              if (!candidate || typeof candidate !== "object") {
+                return [];
+              }
+              const genre = normalizeGenreName(candidate.genre);
+              const value = String(candidate.value ?? "").trim();
+              if (!value) {
+                return [];
+              }
+              const filterKey = getFilterKeyFromGenre(genre);
+              const setting = filterSettings.get(filterKey) || { visible: true, ratio: 1 };
+              const savedRatio = Number(candidate.savedRatio);
+              return [{
+                groupId: null,
+                filterKey,
+                genre,
+                value,
+                count: Math.max(1, Math.floor(Number(candidate.count) || 1)),
+                savedRatio: Number.isFinite(savedRatio) && savedRatio > 0
+                  ? Math.max(MIN_RATIO, savedRatio)
+                  : setting.ratio,
+                savedVisible: typeof candidate.savedVisible === "boolean"
+                  ? candidate.savedVisible
+                  : setting.visible
+              }];
+            })
+          : [];
+
+        ratioEnabled = storedState.ratioEnabled !== false;
+        soundEnabled = storedState.soundEnabled !== false;
+        return true;
+      } catch (error) {
+        reportStorageError(error);
+        return false;
+      }
     }
 
     function getFilterKeyFromGenre(genre) {
@@ -2286,6 +2418,7 @@
       const locked = isFilterLocked();
       importButton.disabled = locked;
       exportButton.disabled = locked;
+      scheduleAppStateSave();
     }
 
     function fitText(text, maxWidth, baseSize) {
@@ -2504,6 +2637,7 @@
     function toggleSound() {
       soundEnabled = !soundEnabled;
       renderSoundToggle();
+      scheduleAppStateSave();
 
       if (!soundEnabled) {
         stopSpinSound();
@@ -3335,6 +3469,7 @@
       const group = inputGroups.find((item) => item.id === wrapper.dataset.groupId);
       if (group) {
         group[field] = event.target.value;
+        scheduleAppStateSave();
       }
     });
 
@@ -3353,6 +3488,7 @@
       if (button.dataset.action === "add") {
         inputGroups.splice(groupIndex + 1, 0, createGroup());
         renderInputGroups();
+        scheduleAppStateSave();
         const addedGroup = inputGroups[groupIndex + 1];
         document.getElementById(`genre-${addedGroup.id}`)?.focus();
         return;
@@ -3361,6 +3497,7 @@
       if (button.dataset.action === "remove" && inputGroups.length > 1) {
         inputGroups.splice(groupIndex, 1);
         renderInputGroups();
+        scheduleAppStateSave();
         setMessage("入力グループを削除しました。候補へ反映するには「候補を反映」を押してください。");
       }
     });
@@ -3412,9 +3549,12 @@
     });
     window.addEventListener("pageshow", restoreInputGroupValuesAfterPageReturn);
     window.addEventListener("focus", restoreInputGroupValuesAfterPageReturn);
+    window.addEventListener("pagehide", saveAppState);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         restoreInputGroupValuesAfterPageReturn();
+      } else {
+        saveAppState();
       }
     });
     soundToggleButton.addEventListener("click", toggleSound);
@@ -3428,6 +3568,7 @@
     applyButton.addEventListener("click", applyItems);
     resetButton.addEventListener("click", resetAll);
 
+    restoreAppState();
     allCandidates = buildCandidates();
     syncFilterSettings();
     updateVisibleCandidates();
