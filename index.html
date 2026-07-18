@@ -529,7 +529,6 @@
       align-content: start;
     }
 
-    .settings-panel,
     .genre-panel {
       padding: 22px;
     }
@@ -560,78 +559,6 @@
       font-weight: 800;
     }
 
-    .input-groups {
-      display: grid;
-      gap: 14px;
-    }
-
-    .input-group {
-      display: grid;
-      grid-template-columns: 38px minmax(110px, 0.72fr) minmax(180px, 1.45fr);
-      gap: 10px;
-      align-items: stretch;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(247, 248, 252, 0.82);
-    }
-
-    .group-controls {
-      display: grid;
-      align-content: start;
-      gap: 7px;
-      padding-top: 25px;
-    }
-
-    .group-icon-button {
-      width: 36px;
-      height: 36px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #ffffff;
-      color: var(--primary);
-      font-size: 22px;
-      font-weight: 800;
-      line-height: 1;
-      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
-    }
-
-    .group-icon-button:not(:disabled):hover {
-      transform: translateY(-1px);
-      border-color: rgba(91, 91, 214, 0.5);
-      background: #f4f3ff;
-    }
-
-    .group-icon-button.remove {
-      color: var(--danger);
-    }
-
-    .group-icon-button.remove:not(:disabled):hover {
-      border-color: #efc2bf;
-      background: #fff5f4;
-    }
-
-    .field {
-      min-width: 0;
-    }
-
-    .field label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 20px;
-      margin-bottom: 5px;
-      font-size: 12px;
-      font-weight: 800;
-      color: #4f5668;
-    }
-
-    .optional {
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 600;
-    }
-
     input[type="text"],
     textarea {
       width: 100%;
@@ -657,19 +584,6 @@
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(91, 91, 214, 0.12);
-    }
-
-    .helper {
-      margin: 10px 0 14px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .settings-actions {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
     }
 
     .data-actions {
@@ -786,12 +700,115 @@
       gap: 9px;
     }
 
+    .genre-list-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+
     .list-item {
       min-width: 0;
       padding: 11px 12px;
       border: 1px solid var(--line);
       border-radius: 12px;
       background: #ffffff;
+    }
+
+    .genre-edit-actions {
+      display: grid;
+      gap: 7px;
+    }
+
+    .genre-edit-button {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--primary);
+      background: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .genre-edit-button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: rgba(91, 91, 214, 0.5);
+      background: #f4f3ff;
+    }
+
+    .genre-edit-button.save {
+      color: var(--success);
+    }
+
+    .genre-edit-button.cancel {
+      color: var(--muted);
+    }
+
+    .genre-edit-button.delete {
+      color: var(--danger);
+    }
+
+    .genre-editor-card {
+      border-color: rgba(91, 91, 214, 0.42);
+      background: #faf9ff;
+    }
+
+    .genre-editor-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .genre-name-input {
+      min-width: 0;
+      height: 38px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      font-weight: 800;
+    }
+
+    .genre-items-input {
+      min-height: 150px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .add-genre-button {
+      width: calc(100% - 44px);
+      min-height: 44px;
+      margin-top: 12px;
+      border: 1px dashed rgba(91, 91, 214, 0.42);
+      border-radius: 12px;
+      color: var(--primary-dark);
+      background: #f8f7ff;
+      font-weight: 800;
+    }
+
+    .add-genre-button:not(:disabled):hover {
+      border-color: var(--primary);
+      background: #f1efff;
+    }
+
+    .genre-management-actions {
+      padding-top: 14px;
+      margin-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .genre-management-actions .data-actions {
+      margin-top: 0;
+    }
+
+    .genre-reset-button {
+      width: 100%;
+      margin-top: 10px;
     }
 
     .genre-item-header {
@@ -954,9 +971,18 @@
     }
 
     @media (max-width: 430px) {
+      .genre-list-row {
+        grid-template-columns: minmax(0, 1fr) 34px;
+        gap: 6px;
+      }
+
       .list-item {
-        gap: 7px;
         padding: 10px;
+      }
+
+      .genre-edit-button {
+        width: 34px;
+        height: 34px;
       }
 
       .item-number {
@@ -969,6 +995,14 @@
 
       .ratio-input {
         width: 58px;
+      }
+
+      .genre-editor-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .genre-editor-header .visibility-button {
+        grid-column: 2;
       }
     }
 
@@ -1238,20 +1272,6 @@
         grid-template-columns: 1fr 1fr;
       }
 
-      .input-group {
-        grid-template-columns: 38px 1fr;
-      }
-
-      .group-controls {
-        grid-row: 1 / 3;
-      }
-
-      .genre-field,
-      .candidates-field {
-        grid-column: 2;
-      }
-
-      .settings-actions,
       .data-actions {
         grid-template-columns: 1fr;
       }
@@ -1274,7 +1294,6 @@
       }
 
       .roulette-panel,
-      .settings-panel,
       .genre-panel {
         padding: 18px;
         border-radius: 18px;
@@ -1297,7 +1316,7 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">追加入力加速・履歴保持型候補復活・PC候補数表示・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
+      <div class="version-note">ジャンル・候補一体型編集・追加入力加速・履歴保持型候補復活・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
       <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
@@ -1384,21 +1403,13 @@
             <button id="ratioModeButton" class="filter-action-button ratio-mode-button desktop-ratio-mode-button" type="button" aria-pressed="true">比率 ON</button>
           </div>
           <ul id="genreList" class="genre-list"></ul>
-        </section>
-
-        <section class="panel settings-panel">
-          <div class="panel-title">
-            <h2>候補を編集</h2>
-          </div>
-          <div id="inputGroups" class="input-groups"></div>
-          <p class="helper">ジャンルは任意です。同じジャンル名は1つのグループとして扱います。候補は1行につき1件入力してください。「＋」で入力欄を追加し、「－」で削除できます。</p>
-          <div class="settings-actions">
-            <button id="applyButton" class="button button-apply" type="button">候補を反映</button>
-            <button id="resetButton" class="button button-reset" type="button">初期化</button>
-          </div>
-          <div class="data-actions" aria-label="データのインポートとエクスポート">
-            <button id="importButton" class="button-import" type="button">CSVインポート</button>
-            <button id="exportButton" class="button-export" type="button">CSVエクスポート</button>
+          <button id="addGenreButton" class="add-genre-button" type="button">＋ ジャンルを追加</button>
+          <div class="genre-management-actions">
+            <div class="data-actions" aria-label="データのインポートとエクスポート">
+              <button id="importButton" class="button-import" type="button">CSVインポート</button>
+              <button id="exportButton" class="button-export" type="button">CSVエクスポート</button>
+            </div>
+            <button id="resetButton" class="button button-reset genre-reset-button" type="button">初期化</button>
           </div>
         </section>
       </aside>
@@ -1420,6 +1431,14 @@
       <button id="drawerHideAllGenresButton" class="filter-action-button" type="button">すべて非表示</button>
     </div>
     <ul id="drawerGenreList" class="genre-list drawer-genre-list"></ul>
+    <button id="drawerAddGenreButton" class="add-genre-button" type="button">＋ ジャンルを追加</button>
+    <div class="genre-management-actions">
+      <div class="data-actions" aria-label="データのインポートとエクスポート">
+        <button id="drawerImportButton" class="button-import" type="button">CSVインポート</button>
+        <button id="drawerExportButton" class="button-export" type="button">CSVエクスポート</button>
+      </div>
+      <button id="drawerResetButton" class="button button-reset genre-reset-button" type="button">初期化</button>
+    </div>
   </aside>
 
   <input id="csvFileInput" class="visually-hidden-file" type="file" accept=".csv,text/csv" />
@@ -1493,7 +1512,6 @@
 
     const canvas = document.getElementById("wheelCanvas");
     const context = canvas.getContext("2d");
-    const inputGroupsContainer = document.getElementById("inputGroups");
     const genreList = document.getElementById("genreList");
     const selectedGroupsContainer = document.getElementById("selectedGroups");
     const genreCount = document.getElementById("genreCount");
@@ -1508,8 +1526,8 @@
     const spinButton = document.getElementById("spinButton");
     const decisionButton = document.getElementById("decisionButton");
     const holdButton = document.getElementById("holdButton");
-    const applyButton = document.getElementById("applyButton");
     const resetButton = document.getElementById("resetButton");
+    const addGenreButton = document.getElementById("addGenreButton");
     const showAllGenresButton = document.getElementById("showAllGenresButton");
     const hideAllGenresButton = document.getElementById("hideAllGenresButton");
     const ratioModeButton = document.getElementById("ratioModeButton");
@@ -1522,10 +1540,14 @@
     const drawerGenreCount = document.getElementById("drawerGenreCount");
     const drawerShowAllGenresButton = document.getElementById("drawerShowAllGenresButton");
     const drawerHideAllGenresButton = document.getElementById("drawerHideAllGenresButton");
+    const drawerAddGenreButton = document.getElementById("drawerAddGenreButton");
+    const drawerResetButton = document.getElementById("drawerResetButton");
     const remainingCandidateCount = document.getElementById("remainingCandidateCount");
     const totalCandidateCount = document.getElementById("totalCandidateCount");
     const importButton = document.getElementById("importButton");
     const exportButton = document.getElementById("exportButton");
+    const drawerImportButton = document.getElementById("drawerImportButton");
+    const drawerExportButton = document.getElementById("drawerExportButton");
     const csvFileInput = document.getElementById("csvFileInput");
     const soundToggleButton = document.getElementById("soundToggleButton");
 
@@ -1541,6 +1563,7 @@
     let inputGroups = createDefaultGroups();
     let filterSettings = new Map();
     const expandedGenreKeys = new Set();
+    let genreEditor = null;
     let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
@@ -2161,7 +2184,7 @@
       holdButton.hidden = !waitingForDecision;
 
       // 回転中もボタンを押せる状態にし、追加クリックを回転力として加算します。
-      spinButton.disabled = candidates.length === 0 || currentResultIndex !== null;
+      spinButton.disabled = candidates.length === 0 || currentResultIndex !== null || genreEditor !== null;
       spinButton.textContent = spinning ? "さらに回す" : "ルーレットを回す";
       spinButton.setAttribute(
         "aria-label",
@@ -2186,105 +2209,6 @@
       return spinning || currentResultIndex !== null;
     }
 
-    function setInputControlsDisabled(disabled) {
-      inputGroupsContainer
-        .querySelectorAll("input, textarea, button")
-        .forEach((element) => {
-          element.disabled = disabled || (element.classList.contains("remove") && inputGroups.length === 1);
-        });
-    }
-
-    function renderInputGroups() {
-      inputGroupsContainer.innerHTML = "";
-
-      inputGroups.forEach((group, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "input-group";
-        wrapper.dataset.groupId = group.id;
-
-        const controls = document.createElement("div");
-        controls.className = "group-controls";
-
-        const addButton = document.createElement("button");
-        addButton.className = "group-icon-button add";
-        addButton.type = "button";
-        addButton.textContent = "+";
-        addButton.dataset.action = "add";
-        addButton.setAttribute("aria-label", `${index + 1}番目の下に入力グループを追加`);
-        addButton.title = "この下に入力欄を追加";
-
-        const removeButton = document.createElement("button");
-        removeButton.className = "group-icon-button remove";
-        removeButton.type = "button";
-        removeButton.textContent = "−";
-        removeButton.dataset.action = "remove";
-        removeButton.disabled = inputGroups.length === 1;
-        removeButton.setAttribute("aria-label", `${index + 1}番目の入力グループを削除`);
-        removeButton.title = inputGroups.length === 1 ? "入力欄は1つ以上必要です" : "この入力欄を削除";
-
-        controls.append(addButton, removeButton);
-
-        const genreField = document.createElement("div");
-        genreField.className = "field genre-field";
-
-        const genreLabel = document.createElement("label");
-        genreLabel.htmlFor = `genre-${group.id}`;
-        genreLabel.innerHTML = `ジャンル <span class="optional">任意</span>`;
-
-        const genreInput = document.createElement("input");
-        genreInput.id = `genre-${group.id}`;
-        genreInput.type = "text";
-        genreInput.value = group.genre;
-        genreInput.placeholder = "例：食べ物";
-        genreInput.dataset.field = "genre";
-        genreInput.autocomplete = "off";
-
-        genreField.append(genreLabel, genreInput);
-
-        const candidatesField = document.createElement("div");
-        candidatesField.className = "field candidates-field";
-
-        const candidatesLabel = document.createElement("label");
-        candidatesLabel.htmlFor = `items-${group.id}`;
-        candidatesLabel.textContent = "候補";
-
-        const candidatesInput = document.createElement("textarea");
-        candidatesInput.id = `items-${group.id}`;
-        candidatesInput.value = group.itemsText;
-        candidatesInput.placeholder = "寿司\nカレー\nラーメン";
-        candidatesInput.dataset.field = "itemsText";
-        candidatesInput.setAttribute("aria-label", `${index + 1}番目の候補`);
-
-        candidatesField.append(candidatesLabel, candidatesInput);
-        wrapper.append(controls, genreField, candidatesField);
-        inputGroupsContainer.appendChild(wrapper);
-      });
-
-      setInputControlsDisabled(spinning);
-    }
-
-    function restoreInputGroupValues() {
-      inputGroups.forEach((group) => {
-        const genreInput = document.getElementById(`genre-${group.id}`);
-        const candidatesInput = document.getElementById(`items-${group.id}`);
-
-        if (genreInput && genreInput.value !== group.genre) {
-          genreInput.value = group.genre;
-        }
-        if (candidatesInput && candidatesInput.value !== group.itemsText) {
-          candidatesInput.value = group.itemsText;
-        }
-      });
-    }
-
-    function restoreInputGroupValuesAfterPageReturn() {
-      // iOS Safari may clear text inputs while showing a downloaded file preview.
-      // Input events keep inputGroups current, so restoring from it also preserves
-      // edits that have not yet been applied to the roulette.
-      restoreInputGroupValues();
-      window.requestAnimationFrame(restoreInputGroupValues);
-    }
-
     function aggregateByGenre(values) {
       const groups = new Map();
 
@@ -2303,12 +2227,99 @@
       return Number(value.toFixed(2)).toString();
     }
 
+    function createGenreEditAction(action, text, label, className = "") {
+      const button = document.createElement("button");
+      button.className = `genre-edit-button ${className}`.trim();
+      button.type = "button";
+      button.dataset.action = action;
+      button.textContent = text;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      return button;
+    }
+
+    function createGenreEditorItem(index, surface) {
+      const item = document.createElement("li");
+      item.className = "genre-list-row";
+      item.dataset.filterKey = genreEditor.originalFilterKey || "__new-genre__";
+
+      const card = document.createElement("div");
+      card.className = genreEditor.visible
+        ? "list-item genre-editor-card"
+        : "list-item genre-editor-card is-hidden";
+
+      const header = document.createElement("div");
+      header.className = "genre-editor-header";
+
+      const genreInput = document.createElement("input");
+      genreInput.className = "genre-name-input";
+      genreInput.type = "text";
+      genreInput.value = genreEditor.genre;
+      genreInput.placeholder = "ジャンル名（任意）";
+      genreInput.dataset.editorField = "genre";
+      genreInput.autocomplete = "off";
+      genreInput.setAttribute("aria-label", "ジャンル名");
+
+      const ratioControl = document.createElement("label");
+      ratioControl.className = ratioEnabled ? "ratio-control" : "ratio-control is-disabled";
+      const ratioLabel = document.createElement("span");
+      ratioLabel.textContent = "比率";
+      const ratioInput = document.createElement("input");
+      ratioInput.className = "ratio-input";
+      ratioInput.type = "number";
+      ratioInput.min = String(MIN_RATIO);
+      ratioInput.step = "0.1";
+      ratioInput.value = formatRatio(genreEditor.ratio);
+      ratioInput.dataset.editorField = "ratio";
+      ratioInput.disabled = !ratioEnabled;
+      ratioInput.setAttribute("aria-label", "編集中ジャンルの当選比率");
+      ratioControl.append(ratioLabel, ratioInput);
+
+      const visibilityButton = document.createElement("button");
+      visibilityButton.className = genreEditor.visible
+        ? "visibility-button"
+        : "visibility-button is-hidden";
+      visibilityButton.type = "button";
+      visibilityButton.dataset.action = "editor-toggle-visibility";
+      visibilityButton.innerHTML = genreEditor.visible ? EYE_OPEN_ICON : EYE_CLOSED_ICON;
+      visibilityButton.setAttribute(
+        "aria-label",
+        `編集中のジャンルを${genreEditor.visible ? "非表示" : "表示"}にする`
+      );
+      visibilityButton.title = genreEditor.visible ? "ルーレットから非表示にする" : "ルーレットに表示する";
+
+      const itemsInput = document.createElement("textarea");
+      itemsInput.className = "genre-items-input";
+      itemsInput.value = genreEditor.itemsText;
+      itemsInput.placeholder = "候補を1行につき1件入力";
+      itemsInput.dataset.editorField = "itemsText";
+      itemsInput.setAttribute("aria-label", "候補一覧。1行につき1件入力してください");
+
+      const actions = document.createElement("div");
+      actions.className = "genre-edit-actions";
+      actions.append(
+        createGenreEditAction("save-genre", "✓", "編集内容を保存", "save"),
+        createGenreEditAction("cancel-genre", "×", "編集をキャンセル", "cancel")
+      );
+      if (genreEditor.mode === "existing") {
+        actions.appendChild(createGenreEditAction("delete-genre", "🗑", "このジャンルを削除", "delete"));
+      }
+
+      header.append(genreInput, ratioControl, visibilityButton);
+      card.append(header, itemsInput);
+      item.append(card, actions);
+      return item;
+    }
+
     function createGenreListItem(group, index, locked, surface) {
       const setting = getFilterSetting(group.filterKey);
       const expanded = expandedGenreKeys.has(group.filterKey);
       const item = document.createElement("li");
-      item.className = setting.visible ? "list-item" : "list-item is-hidden";
+      item.className = "genre-list-row";
       item.dataset.filterKey = group.filterKey;
+
+      const card = document.createElement("div");
+      card.className = setting.visible ? "list-item" : "list-item is-hidden";
 
       const header = document.createElement("div");
       header.className = "genre-item-header";
@@ -2384,8 +2395,19 @@
         candidateList.appendChild(candidateItem);
       });
 
+      const editActions = document.createElement("div");
+      editActions.className = "genre-edit-actions";
+      const editButton = createGenreEditAction(
+        "edit-genre",
+        "✎",
+        `${displayGenre(group.genre)}を編集`
+      );
+      editButton.disabled = locked;
+      editActions.appendChild(editButton);
+
       header.append(number, expandButton, ratioControl, visibilityButton);
-      item.append(header, candidateList);
+      card.append(header, candidateList);
+      item.append(card, editActions);
       return item;
     }
 
@@ -2406,7 +2428,7 @@
         (group) => getFilterSetting(group.filterKey).visible
       ).length;
       const totalGroupCount = filterGroups.length;
-      const locked = isFilterLocked();
+      const locked = isFilterLocked() || genreEditor !== null;
       const countText = `${visibleGroupCount} / ${totalGroupCount}`;
 
       genreCount.textContent = countText;
@@ -2426,30 +2448,49 @@
           ? "ジャンル比率を無効にして、全候補を同じ確率にする"
           : "ジャンル比率を有効にする";
       });
+      [addGenreButton, drawerAddGenreButton].forEach((button) => {
+        button.disabled = locked;
+      });
+      [importButton, exportButton, drawerImportButton, drawerExportButton, resetButton, drawerResetButton]
+        .forEach((button) => {
+          button.disabled = locked;
+        });
 
-      if (totalGroupCount === 0) {
+      if (totalGroupCount === 0 && !genreEditor) {
         listContainers.forEach((container) => {
           const empty = document.createElement("li");
           empty.className = "empty-state";
           empty.textContent = "ジャンルがありません";
           container.appendChild(empty);
         });
-        return;
       }
 
       filterGroups.forEach((group, index) => {
         listContainers.forEach((container, containerIndex) => {
           const surface = containerIndex === 0 ? "desktop" : "drawer";
-          container.appendChild(createGenreListItem(group, index, locked, surface));
+          const editingThisGroup = genreEditor?.mode === "existing"
+            && genreEditor.originalFilterKey === group.filterKey;
+          container.appendChild(
+            editingThisGroup
+              ? createGenreEditorItem(index, surface)
+              : createGenreListItem(group, index, locked, surface)
+          );
         });
       });
+
+      if (genreEditor?.mode === "new") {
+        listContainers.forEach((container, containerIndex) => {
+          const surface = containerIndex === 0 ? "desktop" : "drawer";
+          container.appendChild(createGenreEditorItem(filterGroups.length, surface));
+        });
+      }
     }
 
     function renderSelectedItems() {
       selectedGroupsContainer.innerHTML = "";
       selectedCount.textContent = getSelectedTotalCount();
 
-      const locked = isFilterLocked();
+      const locked = isFilterLocked() || genreEditor !== null;
       const hasSelectedItems = selectedItems.length > 0;
       const restorableCount = selectedItems.filter(
         (candidate) => !candidateAlreadyExistsInGenre(candidate)
@@ -2529,9 +2570,6 @@
       renderSelectedItems();
       renderCandidateSummary();
       renderActionButtons();
-      const locked = isFilterLocked();
-      importButton.disabled = locked;
-      exportButton.disabled = locked;
       scheduleAppStateSave();
     }
 
@@ -2804,9 +2842,6 @@
       stopResultSound();
       startSpinSound();
       setMessage("抽選中です。ボタンを押すと回転力を追加できます。");
-      applyButton.disabled = true;
-      resetButton.disabled = true;
-      setInputControlsDisabled(true);
       renderGenres();
       renderSelectedItems();
       renderActionButtons();
@@ -2864,9 +2899,6 @@
         const finalSegment = getSegmentAtPointer(segments, currentRotation);
         if (!finalSegment) {
           spinning = false;
-          applyButton.disabled = false;
-          resetButton.disabled = false;
-          setInputControlsDisabled(false);
           renderState();
           setMessage("抽選結果を取得できませんでした。もう一度お試しください。", "error");
           return;
@@ -2876,9 +2908,6 @@
         resultValue.textContent = formatResult(finalSegment.candidate);
         playResultSound();
         spinning = false;
-        applyButton.disabled = false;
-        resetButton.disabled = false;
-        setInputControlsDisabled(false);
         renderState();
         setMessage("「決定」または「保留」を選んでください。");
       }
@@ -2917,7 +2946,6 @@
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
       setMessage(
@@ -2976,7 +3004,6 @@
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
 
@@ -3018,7 +3045,6 @@
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
       setMessage(
@@ -3038,32 +3064,166 @@
       setMessage(`「${formatResult(heldItem)}」は候補に残しました。`);
     }
 
-    function applyItems() {
-      if (spinning || currentResultIndex !== null) {
+    function focusGenreEditor(surface, field = "genre") {
+      window.requestAnimationFrame(() => {
+        const container = surface === "drawer" ? drawerGenreList : genreList;
+        container.querySelector(`[data-editor-field="${field}"]`)?.focus();
+      });
+    }
+
+    function startGenreEdit(filterKey, surface) {
+      if (isFilterLocked() || genreEditor) {
         return;
       }
 
-      const nextCandidates = buildCandidates();
-
-      if (nextCandidates.length === 0) {
-        setMessage("候補を1件以上入力してください。", "error");
+      const group = getFilterGroups().find((entry) => entry.filterKey === filterKey);
+      if (!group) {
         return;
       }
 
-      allCandidates = nextCandidates;
+      const setting = getFilterSetting(filterKey);
+      expandedGenreKeys.add(filterKey);
+      genreEditor = {
+        mode: "existing",
+        originalFilterKey: filterKey,
+        genre: group.genre,
+        itemsText: group.values.join("\n"),
+        ratio: setting.ratio,
+        visible: setting.visible,
+        surface
+      };
+      renderGenres();
+      renderActionButtons();
+      focusGenreEditor(surface);
+    }
+
+    function startNewGenre(surface) {
+      if (isFilterLocked() || genreEditor) {
+        return;
+      }
+
+      genreEditor = {
+        mode: "new",
+        originalFilterKey: null,
+        genre: "",
+        itemsText: "",
+        ratio: 1,
+        visible: true,
+        surface
+      };
+      renderGenres();
+      renderActionButtons();
+      focusGenreEditor(surface);
+    }
+
+    function cancelGenreEdit() {
+      if (!genreEditor) {
+        return;
+      }
+      genreEditor = null;
+      renderGenres();
+      renderActionButtons();
+      setMessage("編集をキャンセルしました。");
+    }
+
+    function rebuildAfterGenreChange() {
+      allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
+    }
+
+    function saveGenreEdit() {
+      if (!genreEditor || isFilterLocked()) {
+        return;
+      }
+
+      const draft = { ...genreEditor };
+      const genre = normalizeGenreName(draft.genre);
+      const values = normalizeItems(draft.itemsText);
+      const ratio = Number(draft.ratio);
+      if (values.length === 0) {
+        setMessage("候補を1件以上入力してください。", "error");
+        focusGenreEditor(draft.surface, "itemsText");
+        return;
+      }
+      if (!Number.isFinite(ratio) || ratio < MIN_RATIO) {
+        setMessage(`比率は${MIN_RATIO}以上で入力してください。`, "error");
+        focusGenreEditor(draft.surface, "ratio");
+        return;
+      }
+
+      const targetFilterKey = getFilterKeyFromGenre(genre);
+      const sourceFilterKey = draft.originalFilterKey;
+      const targetAlreadyExists = getFilterGroups().some(
+        (group) => group.filterKey === targetFilterKey && group.filterKey !== sourceFilterKey
+      );
+      const keysToReplace = new Set([targetFilterKey]);
+      if (sourceFilterKey) {
+        keysToReplace.add(sourceFilterKey);
+      }
+
+      const targetValues = targetAlreadyExists
+        ? inputGroups
+            .filter((group) => getFilterKey(group) === targetFilterKey)
+            .flatMap((group) => normalizeItems(group.itemsText))
+        : [];
+      const mergedValues = normalizeItems([...targetValues, ...values].join("\n"));
+      const firstAffectedIndex = inputGroups.findIndex(
+        (group) => keysToReplace.has(getFilterKey(group))
+      );
+      const remainingGroups = inputGroups.filter(
+        (group) => !keysToReplace.has(getFilterKey(group))
+      );
+      const insertionIndex = firstAffectedIndex === -1
+        ? remainingGroups.length
+        : inputGroups
+            .slice(0, firstAffectedIndex)
+            .filter((group) => !keysToReplace.has(getFilterKey(group))).length;
+      remainingGroups.splice(insertionIndex, 0, createGroup(genre, mergedValues.join("\n")));
+      inputGroups = remainingGroups;
+
+      if (!targetAlreadyExists || targetFilterKey === sourceFilterKey) {
+        filterSettings.set(targetFilterKey, {
+          visible: draft.visible,
+          ratio: Number(ratio.toFixed(2))
+        });
+      }
+
+      genreEditor = null;
+      expandedGenreKeys.add(targetFilterKey);
+      rebuildAfterGenreChange();
       setMessage(
-        candidates.length > 0
-          ? "ジャンルと候補をルーレットに反映しました。"
-          : "候補を反映しました。現在はすべてのジャンルが非表示です。",
+        targetAlreadyExists
+          ? `${displayGenre(genre)}へ候補を統合しました。既存の比率と表示設定を使用します。`
+          : `${displayGenre(genre)}の編集内容を保存しました。`,
         "success"
       );
+    }
+
+    function deleteEditingGenre() {
+      if (!genreEditor || genreEditor.mode !== "existing" || isFilterLocked()) {
+        return;
+      }
+
+      const label = getFilterGroupLabel(genreEditor.originalFilterKey);
+      const count = normalizeItems(genreEditor.itemsText).length;
+      if (!window.confirm(`「${label}」と登録候補${count}件を削除しますか？`)) {
+        return;
+      }
+
+      const deletedFilterKey = genreEditor.originalFilterKey;
+      inputGroups = inputGroups.filter((group) => getFilterKey(group) !== deletedFilterKey);
+      if (inputGroups.length === 0) {
+        inputGroups = [createGroup()];
+      }
+      genreEditor = null;
+      expandedGenreKeys.delete(deletedFilterKey);
+      rebuildAfterGenreChange();
+      setMessage(`「${label}」を削除しました。選択済み履歴は保持しています。`, "success");
     }
 
     function resetAll() {
@@ -3072,6 +3232,7 @@
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
       expandedGenreKeys.clear();
+      genreEditor = null;
       ratioEnabled = true;
       allCandidates = buildCandidates();
       syncFilterSettings();
@@ -3079,7 +3240,6 @@
       selectedItems = [];
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
       setMessage("初期状態に戻しました。");
@@ -3518,7 +3678,6 @@
       updateVisibleCandidates();
       currentRotation = 0;
       resetResult();
-      renderInputGroups();
       renderState();
       drawWheel(0);
       setMessage(`「${fileName}」から${importedCount}件を復元しました。`, "success");
@@ -3552,14 +3711,39 @@
 
     function bindGenreListInteractions(container) {
       container.addEventListener("click", (event) => {
-        const item = event.target.closest(".list-item");
-        if (!item) {
+        const row = event.target.closest(".genre-list-row");
+        const actionButton = event.target.closest("button[data-action]");
+        if (!row || !actionButton) {
           return;
         }
 
-        const filterKey = item.dataset.filterKey;
-        const expandButton = event.target.closest('button[data-action="toggle-candidates"]');
-        if (expandButton) {
+        const filterKey = row.dataset.filterKey;
+        const surface = container === drawerGenreList ? "drawer" : "desktop";
+        const action = actionButton.dataset.action;
+
+        if (action === "edit-genre") {
+          startGenreEdit(filterKey, surface);
+          return;
+        }
+        if (action === "save-genre") {
+          saveGenreEdit();
+          return;
+        }
+        if (action === "cancel-genre") {
+          cancelGenreEdit();
+          return;
+        }
+        if (action === "delete-genre") {
+          deleteEditingGenre();
+          return;
+        }
+        if (action === "editor-toggle-visibility" && genreEditor) {
+          genreEditor.visible = !genreEditor.visible;
+          renderGenres();
+          return;
+        }
+
+        if (action === "toggle-candidates") {
           if (expandedGenreKeys.has(filterKey)) {
             expandedGenreKeys.delete(filterKey);
           } else {
@@ -3568,12 +3752,12 @@
 
           const expanded = expandedGenreKeys.has(filterKey);
           [genreList, drawerGenreList].forEach((list) => {
-            [...list.querySelectorAll(".list-item")].forEach((genreItem) => {
-              if (genreItem.dataset.filterKey !== filterKey) {
+            [...list.querySelectorAll(".genre-list-row")].forEach((genreRow) => {
+              if (genreRow.dataset.filterKey !== filterKey) {
                 return;
               }
-              const button = genreItem.querySelector('button[data-action="toggle-candidates"]');
-              const candidateList = genreItem.querySelector(".genre-candidate-list");
+              const button = genreRow.querySelector('button[data-action="toggle-candidates"]');
+              const candidateList = genreRow.querySelector(".genre-candidate-list");
               button.setAttribute("aria-expanded", String(expanded));
               button.setAttribute(
                 "aria-label",
@@ -3586,8 +3770,7 @@
           return;
         }
 
-        const visibilityButton = event.target.closest('button[data-action="toggle-visibility"]');
-        if (!visibilityButton || isFilterLocked()) {
+        if (action !== "toggle-visibility" || isFilterLocked() || genreEditor) {
           return;
         }
 
@@ -3597,68 +3780,39 @@
 
       container.addEventListener("change", (event) => {
         const ratioInput = event.target.closest('input[data-action="change-ratio"]');
-        const item = event.target.closest(".list-item");
-        if (!ratioInput || !item || isFilterLocked()) {
+        const row = event.target.closest(".genre-list-row");
+        if (!ratioInput || !row || isFilterLocked() || genreEditor) {
           return;
         }
 
-        updateGenreRatio(item.dataset.filterKey, ratioInput.value);
+        updateGenreRatio(row.dataset.filterKey, ratioInput.value);
+      });
+
+      container.addEventListener("input", (event) => {
+        const field = event.target.dataset.editorField;
+        if (!genreEditor || !field) {
+          return;
+        }
+        genreEditor[field] = field === "ratio" ? Number(event.target.value) : event.target.value;
       });
     }
-
-    inputGroupsContainer.addEventListener("input", (event) => {
-      const wrapper = event.target.closest(".input-group");
-      const field = event.target.dataset.field;
-      if (!wrapper || !field) {
-        return;
-      }
-
-      const group = inputGroups.find((item) => item.id === wrapper.dataset.groupId);
-      if (group) {
-        group[field] = event.target.value;
-        scheduleAppStateSave();
-      }
-    });
-
-    inputGroupsContainer.addEventListener("click", (event) => {
-      const button = event.target.closest("button[data-action]");
-      const wrapper = event.target.closest(".input-group");
-      if (!button || !wrapper || spinning) {
-        return;
-      }
-
-      const groupIndex = inputGroups.findIndex((item) => item.id === wrapper.dataset.groupId);
-      if (groupIndex === -1) {
-        return;
-      }
-
-      if (button.dataset.action === "add") {
-        inputGroups.splice(groupIndex + 1, 0, createGroup());
-        renderInputGroups();
-        scheduleAppStateSave();
-        const addedGroup = inputGroups[groupIndex + 1];
-        document.getElementById(`genre-${addedGroup.id}`)?.focus();
-        return;
-      }
-
-      if (button.dataset.action === "remove" && inputGroups.length > 1) {
-        inputGroups.splice(groupIndex, 1);
-        renderInputGroups();
-        scheduleAppStateSave();
-        setMessage("入力グループを削除しました。候補へ反映するには「候補を反映」を押してください。");
-      }
-    });
 
     bindGenreListInteractions(genreList);
     bindGenreListInteractions(drawerGenreList);
 
-    importButton.addEventListener("click", () => {
-      if (isFilterLocked()) {
+    function openCsvPicker() {
+      if (isFilterLocked() || genreEditor) {
         return;
       }
       csvFileInput.click();
-    });
+    }
+
+    importButton.addEventListener("click", openCsvPicker);
+    drawerImportButton.addEventListener("click", openCsvPicker);
     exportButton.addEventListener("click", exportCsv);
+    drawerExportButton.addEventListener("click", exportCsv);
+    addGenreButton.addEventListener("click", () => startNewGenre("desktop"));
+    drawerAddGenreButton.addEventListener("click", () => startNewGenre("drawer"));
     csvFileInput.addEventListener("change", async () => {
       const [file] = csvFileInput.files;
       if (!file) {
@@ -3685,7 +3839,12 @@
     genreDrawerCloseButton.addEventListener("click", () => closeGenreDrawer());
     genreDrawerBackdrop.addEventListener("click", () => closeGenreDrawer());
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && genreDrawer.classList.contains("is-open")) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (genreEditor) {
+        cancelGenreEdit();
+      } else if (genreDrawer.classList.contains("is-open")) {
         closeGenreDrawer();
       }
     });
@@ -3694,13 +3853,9 @@
         closeGenreDrawer({ restoreFocus: false });
       }
     });
-    window.addEventListener("pageshow", restoreInputGroupValuesAfterPageReturn);
-    window.addEventListener("focus", restoreInputGroupValuesAfterPageReturn);
     window.addEventListener("pagehide", saveAppState);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        restoreInputGroupValuesAfterPageReturn();
-      } else {
+      if (document.visibilityState !== "visible") {
         saveAppState();
       }
     });
@@ -3712,14 +3867,13 @@
     decisionButton.addEventListener("click", decideResult);
     holdButton.addEventListener("click", holdResult);
     reviveAllButton.addEventListener("click", reviveAllSelectedItems);
-    applyButton.addEventListener("click", applyItems);
     resetButton.addEventListener("click", resetAll);
+    drawerResetButton.addEventListener("click", resetAll);
 
     restoreAppState();
     allCandidates = buildCandidates();
     syncFilterSettings();
     updateVisibleCandidates();
-    renderInputGroups();
     renderSoundToggle();
     renderState();
     drawWheel();
