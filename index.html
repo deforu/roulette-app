@@ -2057,6 +2057,28 @@
       setInputControlsDisabled(spinning);
     }
 
+    function restoreInputGroupValues() {
+      inputGroups.forEach((group) => {
+        const genreInput = document.getElementById(`genre-${group.id}`);
+        const candidatesInput = document.getElementById(`items-${group.id}`);
+
+        if (genreInput && genreInput.value !== group.genre) {
+          genreInput.value = group.genre;
+        }
+        if (candidatesInput && candidatesInput.value !== group.itemsText) {
+          candidatesInput.value = group.itemsText;
+        }
+      });
+    }
+
+    function restoreInputGroupValuesAfterPageReturn() {
+      // iOS Safari may clear text inputs while showing a downloaded file preview.
+      // Input events keep inputGroups current, so restoring from it also preserves
+      // edits that have not yet been applied to the roulette.
+      restoreInputGroupValues();
+      window.requestAnimationFrame(restoreInputGroupValues);
+    }
+
     function aggregateByGenre(values) {
       const groups = new Map();
 
@@ -3386,6 +3408,13 @@
     window.addEventListener("resize", () => {
       if (window.innerWidth > 980 && genreDrawer.classList.contains("is-open")) {
         closeGenreDrawer({ restoreFocus: false });
+      }
+    });
+    window.addEventListener("pageshow", restoreInputGroupValuesAfterPageReturn);
+    window.addEventListener("focus", restoreInputGroupValuesAfterPageReturn);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        restoreInputGroupValuesAfterPageReturn();
       }
     });
     soundToggleButton.addEventListener("click", toggleSound);
