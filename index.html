@@ -349,6 +349,17 @@
       color: #ffffff;
     }
 
+    .drawer-genre-list .genre-expand-button:not(:disabled):hover,
+    .drawer-genre-list .genre-expand-button:focus-visible {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .drawer-genre-list .genre-candidate-list {
+      color: rgba(255, 255, 255, 0.82);
+      border-top-color: rgba(255, 255, 255, 0.12);
+    }
+
     .drawer-genre-list .item-number {
       color: #d5d2ff;
       background: rgba(137, 126, 255, 0.22);
@@ -776,14 +787,18 @@
     }
 
     .list-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
       min-width: 0;
       padding: 11px 12px;
       border: 1px solid var(--line);
       border-radius: 12px;
       background: #ffffff;
+    }
+
+    .genre-item-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
     }
 
     .item-number {
@@ -806,13 +821,64 @@
       line-height: 1.45;
     }
 
+    .genre-expand-button {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      align-self: stretch;
+      margin: -4px 0;
+      padding: 4px 6px;
+      border: 0;
+      border-radius: 8px;
+      color: var(--text);
+      background: transparent;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      transition: color 0.16s ease, background 0.16s ease;
+    }
+
+    .genre-expand-button:not(:disabled):hover,
+    .genre-expand-button:focus-visible {
+      color: var(--primary-dark);
+      background: #f4f3ff;
+      outline: none;
+    }
+
+    .genre-expand-icon {
+      flex: 0 0 auto;
+      width: 12px;
+      color: currentColor;
+      font-size: 11px;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .genre-candidate-list {
+      margin: 10px 0 0 36px;
+      padding: 10px 0 0 20px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .genre-candidate-list li {
+      overflow-wrap: anywhere;
+    }
+
+    .genre-candidate-list[hidden] {
+      display: none;
+    }
+
     .list-item.is-hidden {
       border-color: #e5e8ef;
       background: #f4f5f8;
     }
 
     .list-item.is-hidden .item-number,
-    .list-item.is-hidden .item-text {
+    .list-item.is-hidden .item-text,
+    .list-item.is-hidden .genre-candidate-list {
       opacity: 0.5;
     }
 
@@ -1474,6 +1540,7 @@
     let groupSequence = 0;
     let inputGroups = createDefaultGroups();
     let filterSettings = new Map();
+    const expandedGenreKeys = new Set();
     let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
@@ -1719,6 +1786,7 @@
             filterKey: candidate.filterKey,
             genre: candidate.genre,
             count: 0,
+            values: [],
             groupIds: []
           };
           groupByKey.set(candidate.filterKey, filterGroup);
@@ -1727,6 +1795,7 @@
 
         const filterGroup = groupByKey.get(candidate.filterKey);
         filterGroup.count += 1;
+        filterGroup.values.push(candidate.value);
         if (!filterGroup.groupIds.includes(candidate.groupId)) {
           filterGroup.groupIds.push(candidate.groupId);
         }
@@ -2234,19 +2303,41 @@
       return Number(value.toFixed(2)).toString();
     }
 
-    function createGenreListItem(group, index, locked) {
+    function createGenreListItem(group, index, locked, surface) {
       const setting = getFilterSetting(group.filterKey);
+      const expanded = expandedGenreKeys.has(group.filterKey);
       const item = document.createElement("li");
       item.className = setting.visible ? "list-item" : "list-item is-hidden";
       item.dataset.filterKey = group.filterKey;
+
+      const header = document.createElement("div");
+      header.className = "genre-item-header";
 
       const number = document.createElement("span");
       number.className = "item-number";
       number.textContent = index + 1;
 
+      const expandButton = document.createElement("button");
+      expandButton.className = "item-text genre-expand-button";
+      expandButton.type = "button";
+      expandButton.dataset.action = "toggle-candidates";
+      expandButton.setAttribute("aria-expanded", String(expanded));
+
+      const candidateListId = `${surface}-genre-candidates-${index}`;
+      expandButton.setAttribute("aria-controls", candidateListId);
+      expandButton.setAttribute(
+        "aria-label",
+        `${displayGenre(group.genre)}の候補一覧を${expanded ? "閉じる" : "開く"}`
+      );
+
+      const expandIcon = document.createElement("span");
+      expandIcon.className = "genre-expand-icon";
+      expandIcon.setAttribute("aria-hidden", "true");
+      expandIcon.textContent = expanded ? "▼" : "▶";
+
       const text = document.createElement("span");
-      text.className = "item-text";
       text.textContent = `${displayGenre(group.genre)}（${group.count}件）`;
+      expandButton.append(expandIcon, text);
 
       const ratioControl = document.createElement("label");
       ratioControl.className = ratioEnabled ? "ratio-control" : "ratio-control is-disabled";
@@ -2283,7 +2374,18 @@
       );
       visibilityButton.title = setting.visible ? "ルーレットから非表示にする" : "ルーレットに表示する";
 
-      item.append(number, text, ratioControl, visibilityButton);
+      const candidateList = document.createElement("ul");
+      candidateList.id = candidateListId;
+      candidateList.className = "genre-candidate-list";
+      candidateList.hidden = !expanded;
+      group.values.forEach((value) => {
+        const candidateItem = document.createElement("li");
+        candidateItem.textContent = value;
+        candidateList.appendChild(candidateItem);
+      });
+
+      header.append(number, expandButton, ratioControl, visibilityButton);
+      item.append(header, candidateList);
       return item;
     }
 
@@ -2294,6 +2396,12 @@
       });
 
       const filterGroups = getFilterGroups();
+      const activeFilterKeys = new Set(filterGroups.map((group) => group.filterKey));
+      [...expandedGenreKeys].forEach((filterKey) => {
+        if (!activeFilterKeys.has(filterKey)) {
+          expandedGenreKeys.delete(filterKey);
+        }
+      });
       const visibleGroupCount = filterGroups.filter(
         (group) => getFilterSetting(group.filterKey).visible
       ).length;
@@ -2330,8 +2438,9 @@
       }
 
       filterGroups.forEach((group, index) => {
-        listContainers.forEach((container) => {
-          container.appendChild(createGenreListItem(group, index, locked));
+        listContainers.forEach((container, containerIndex) => {
+          const surface = containerIndex === 0 ? "desktop" : "drawer";
+          container.appendChild(createGenreListItem(group, index, locked, surface));
         });
       });
     }
@@ -2962,6 +3071,7 @@
       stopResultSound();
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
+      expandedGenreKeys.clear();
       ratioEnabled = true;
       allCandidates = buildCandidates();
       syncFilterSettings();
@@ -3442,13 +3552,45 @@
 
     function bindGenreListInteractions(container) {
       container.addEventListener("click", (event) => {
-        const button = event.target.closest('button[data-action="toggle-visibility"]');
         const item = event.target.closest(".list-item");
-        if (!button || !item || isFilterLocked()) {
+        if (!item) {
           return;
         }
 
         const filterKey = item.dataset.filterKey;
+        const expandButton = event.target.closest('button[data-action="toggle-candidates"]');
+        if (expandButton) {
+          if (expandedGenreKeys.has(filterKey)) {
+            expandedGenreKeys.delete(filterKey);
+          } else {
+            expandedGenreKeys.add(filterKey);
+          }
+
+          const expanded = expandedGenreKeys.has(filterKey);
+          [genreList, drawerGenreList].forEach((list) => {
+            [...list.querySelectorAll(".list-item")].forEach((genreItem) => {
+              if (genreItem.dataset.filterKey !== filterKey) {
+                return;
+              }
+              const button = genreItem.querySelector('button[data-action="toggle-candidates"]');
+              const candidateList = genreItem.querySelector(".genre-candidate-list");
+              button.setAttribute("aria-expanded", String(expanded));
+              button.setAttribute(
+                "aria-label",
+                `${getFilterGroupLabel(filterKey)}の候補一覧を${expanded ? "閉じる" : "開く"}`
+              );
+              button.querySelector(".genre-expand-icon").textContent = expanded ? "▼" : "▶";
+              candidateList.hidden = !expanded;
+            });
+          });
+          return;
+        }
+
+        const visibilityButton = event.target.closest('button[data-action="toggle-visibility"]');
+        if (!visibilityButton || isFilterLocked()) {
+          return;
+        }
+
         const setting = getFilterSetting(filterKey);
         applyGenreVisibility(filterKey, !setting.visible);
       });
