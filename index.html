@@ -65,7 +65,6 @@
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      margin-bottom: 8px;
     }
 
     .header h1 {
@@ -120,7 +119,13 @@
       font-weight: 800;
     }
 
-    .header p {
+    .page-footer {
+      margin-top: 28px;
+      padding: 20px 4px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .page-footer p {
       margin: 0;
       color: var(--muted);
       line-height: 1.7;
@@ -945,7 +950,7 @@
     }
 
     .ratio-input {
-      width: 66px;
+      width: 48px;
       height: 36px;
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -968,6 +973,10 @@
 
     .ratio-control.is-disabled {
       opacity: 0.48;
+    }
+
+    .ratio-control[hidden] {
+      display: none;
     }
 
     @media (max-width: 430px) {
@@ -994,7 +1003,7 @@
       }
 
       .ratio-input {
-        width: 58px;
+        width: 46px;
       }
 
       .genre-editor-header {
@@ -1316,8 +1325,6 @@
         <h1>ルーレット</h1>
         <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
       </div>
-      <div class="version-note">ジャンル・候補一体型編集・追加入力加速・履歴保持型候補復活・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
-      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
     </header>
 
     <div class="main-grid">
@@ -1414,6 +1421,11 @@
         </section>
       </aside>
     </div>
+
+    <footer class="page-footer" aria-label="アプリの説明と更新概要">
+      <div class="version-note">ジャンル・候補一体型編集・追加入力加速・履歴保持型候補復活・ジャンル設定ドロワー・CSV保存・サウンド対応版</div>
+      <p>ジャンルごとに候補を登録し、表示設定と比率を変更できます。回転中に「さらに回す」を押すと回転力が加わります。比率をオフにすると、表示中の全候補が同じ確率になります。</p>
+    </footer>
 
   </main>
 
@@ -1570,7 +1582,7 @@
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
-    let ratioEnabled = true;
+    let ratioEnabled = false;
     let soundEnabled = true;
     let angularVelocity = 0;
     let spinAnimationFrameId = null;
@@ -1729,7 +1741,7 @@
             })
           : [];
 
-        ratioEnabled = storedState.ratioEnabled !== false;
+        ratioEnabled = storedState.ratioEnabled === true;
         soundEnabled = storedState.soundEnabled !== false;
         return true;
       } catch (error) {
@@ -2262,6 +2274,7 @@
 
       const ratioControl = document.createElement("label");
       ratioControl.className = ratioEnabled ? "ratio-control" : "ratio-control is-disabled";
+      ratioControl.hidden = !ratioEnabled;
       const ratioLabel = document.createElement("span");
       ratioLabel.textContent = "比率";
       const ratioInput = document.createElement("input");
@@ -2352,6 +2365,7 @@
 
       const ratioControl = document.createElement("label");
       ratioControl.className = ratioEnabled ? "ratio-control" : "ratio-control is-disabled";
+      ratioControl.hidden = !ratioEnabled;
 
       const ratioLabel = document.createElement("span");
       ratioLabel.textContent = "比率";
@@ -3233,7 +3247,7 @@
       filterSettings = new Map();
       expandedGenreKeys.clear();
       genreEditor = null;
-      ratioEnabled = true;
+      ratioEnabled = false;
       allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
@@ -3329,8 +3343,7 @@
       ratio: ["ジャンル比率", "比率", "ratio", "genreratio", "genre_ratio"],
       visible: ["ジャンル表示", "表示状態", "表示", "visible", "visibility"],
       selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"],
-      selectionCount: ["選択回数", "重複数", "回数", "selectedcount", "selectioncount", "selected_count", "selection_count"],
-      ratioEnabled: ["比率設定", "比率有効", "比率モード", "ratioenabled", "ratio_enabled"]
+      selectionCount: ["選択回数", "重複数", "回数", "selectedcount", "selectioncount", "selected_count", "selection_count"]
     };
 
     function normalizeCsvHeader(value) {
@@ -3443,14 +3456,10 @@
       const commonFalse = ["false", "0", "no", "n", "off"];
       const trueValues = type === "visible"
         ? [...commonTrue, "表示", "表示中", "visible"]
-        : type === "selected"
-          ? [...commonTrue, "選択済み", "決定済み", "selected"]
-          : [...commonTrue, "有効", "比率有効", "enabled"];
+        : [...commonTrue, "選択済み", "決定済み", "selected"];
       const falseValues = type === "visible"
         ? [...commonFalse, "非表示", "hidden"]
-        : type === "selected"
-          ? [...commonFalse, "未選択", "未決定", "候補"]
-          : [...commonFalse, "無効", "比率無効", "disabled"];
+        : [...commonFalse, "未選択", "未決定", "候補"];
 
       if (trueValues.includes(normalized)) {
         return true;
@@ -3461,9 +3470,7 @@
 
       const fieldName = type === "visible"
         ? "表示状態"
-        : type === "selected"
-          ? "選択済み状態"
-          : "比率設定";
+        : "選択済み状態";
       throw new Error(`${rowNumber}行目の${fieldName}を判定できません。`);
     }
 
@@ -3488,7 +3495,7 @@
       }
 
       const exportCandidates = buildCandidates();
-      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "選択回数", "比率設定"]];
+      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "選択回数"]];
 
       exportCandidates.forEach((candidate) => {
         const setting = getCandidateExportSetting(candidate);
@@ -3498,8 +3505,7 @@
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
           "false",
-          "",
-          ratioEnabled ? "true" : "false"
+          ""
         ]);
       });
 
@@ -3511,8 +3517,7 @@
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
           "true",
-          String(Math.max(1, Number(candidate.count) || 1)),
-          ratioEnabled ? "true" : "false"
+          String(Math.max(1, Number(candidate.count) || 1))
         ]);
       });
 
@@ -3551,8 +3556,7 @@
         ratio: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratio),
         visible: findCsvColumn(headers, CSV_COLUMN_ALIASES.visible),
         selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected),
-        selectionCount: findCsvColumn(headers, CSV_COLUMN_ALIASES.selectionCount),
-        ratioEnabled: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratioEnabled)
+        selectionCount: findCsvColumn(headers, CSV_COLUMN_ALIASES.selectionCount)
       };
 
       if (columns.candidate === -1) {
@@ -3564,8 +3568,6 @@
       const importedSelectedByKey = new Map();
       const importedSettings = new Map();
       let importedCount = 0;
-      let importedRatioEnabled = true;
-      let ratioModeWasSpecified = false;
 
       rows.slice(1).forEach((row, rowIndex) => {
         const rowNumber = rowIndex + 2;
@@ -3585,16 +3587,6 @@
         const visibleCell = columns.visible === -1 ? "" : row[columns.visible];
         const selectedCell = columns.selected === -1 ? "" : row[columns.selected];
         const selectionCountCell = columns.selectionCount === -1 ? "" : row[columns.selectionCount];
-        const ratioEnabledCell = columns.ratioEnabled === -1 ? "" : row[columns.ratioEnabled];
-
-        if (String(ratioEnabledCell ?? "").trim() !== "") {
-          const rowRatioEnabled = parseCsvBoolean(ratioEnabledCell, true, "ratioEnabled", rowNumber);
-          if (ratioModeWasSpecified && rowRatioEnabled !== importedRatioEnabled) {
-            throw new Error(`${rowNumber}行目の比率設定が他の行と一致していません。`);
-          }
-          importedRatioEnabled = rowRatioEnabled;
-          ratioModeWasSpecified = true;
-        }
 
         if (!importedSettings.has(filterKey)) {
           importedSettings.set(filterKey, { visible: true, ratio: 1 });
@@ -3665,7 +3657,6 @@
       }
 
       filterSettings = importedSettings;
-      ratioEnabled = importedRatioEnabled;
       selectedItems = importedSelectedItems;
       allCandidates = buildCandidates();
       selectedItems = selectedItems.map((candidate) => ({
