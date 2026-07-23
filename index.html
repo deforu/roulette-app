@@ -889,6 +889,11 @@
       overflow-wrap: anywhere;
     }
 
+    .genre-candidate-list li.is-inactive {
+      color: #a0a6b3;
+      opacity: 0.62;
+    }
+
     .genre-candidate-list[hidden] {
       display: none;
     }
@@ -1579,6 +1584,7 @@
     let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
+    const inactiveCandidateKeys = new Set();
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
@@ -1643,6 +1649,7 @@
           savedRatio: candidate.savedRatio,
           savedVisible: candidate.savedVisible
         })),
+        inactiveCandidateKeys: [...inactiveCandidateKeys],
         ratioEnabled,
         soundEnabled
       };
@@ -1741,6 +1748,30 @@
             })
           : [];
 
+        inactiveCandidateKeys.clear();
+        const hasStoredInactiveState = Array.isArray(storedState.inactiveCandidateKeys);
+        if (hasStoredInactiveState) {
+          storedState.inactiveCandidateKeys.forEach((key) => {
+            if (typeof key === "string") {
+              inactiveCandidateKeys.add(key);
+            }
+          });
+        }
+
+        selectedItems.forEach((candidate) => {
+          const key = getSelectedItemKey(candidate);
+          const registered = candidateExistsInInputGroups(candidate);
+          const shouldRestoreAsInactive = hasStoredInactiveState
+            ? inactiveCandidateKeys.has(key)
+            : !registered;
+          if (shouldRestoreAsInactive) {
+            inactiveCandidateKeys.add(key);
+            if (!registered) {
+              appendCandidateToInputGroups(candidate);
+            }
+          }
+        });
+
         ratioEnabled = storedState.ratioEnabled === true;
         soundEnabled = storedState.soundEnabled !== false;
         return true;
@@ -1811,6 +1842,54 @@
       return nextCandidates;
     }
 
+    function candidateExistsInInputGroups(candidate) {
+      const candidateKey = getSelectedItemKey(candidate);
+      return inputGroups.some((group) => {
+        const genre = normalizeGenreName(group.genre);
+        return normalizeItems(group.itemsText).some((value) => (
+          getSelectedItemKey({ genre, value }) === candidateKey
+        ));
+      });
+    }
+
+    function appendCandidateToInputGroups(candidate) {
+      const normalizedGenre = normalizeGenreName(candidate.genre);
+      let targetGroup = inputGroups.find(
+        (group) => normalizeGenreName(group.genre) === normalizedGenre
+      );
+      if (!targetGroup) {
+        targetGroup = createGroup(normalizedGenre, "");
+        inputGroups.push(targetGroup);
+      }
+      const values = normalizeItems(targetGroup.itemsText);
+      if (!values.includes(candidate.value)) {
+        values.push(candidate.value);
+        targetGroup.itemsText = values.join("\n");
+      }
+    }
+
+    function isCandidateInactive(candidate) {
+      return inactiveCandidateKeys.has(getSelectedItemKey(candidate));
+    }
+
+    function isCandidateRegistered(candidate) {
+      const key = getSelectedItemKey(candidate);
+      return allCandidates.some((item) => getSelectedItemKey(item) === key);
+    }
+
+    function isCandidateActive(candidate) {
+      return isCandidateRegistered(candidate) && !isCandidateInactive(candidate);
+    }
+
+    function syncInactiveCandidateKeys() {
+      const registeredKeys = new Set(allCandidates.map(getSelectedItemKey));
+      [...inactiveCandidateKeys].forEach((key) => {
+        if (!registeredKeys.has(key)) {
+          inactiveCandidateKeys.delete(key);
+        }
+      });
+    }
+
     function getFilterGroups() {
       const filterGroups = [];
       const groupByKey = new Map();
@@ -1822,6 +1901,7 @@
             genre: candidate.genre,
             count: 0,
             values: [],
+            candidates: [],
             groupIds: []
           };
           groupByKey.set(candidate.filterKey, filterGroup);
@@ -1831,6 +1911,7 @@
         const filterGroup = groupByKey.get(candidate.filterKey);
         filterGroup.count += 1;
         filterGroup.values.push(candidate.value);
+        filterGroup.candidates.push(candidate);
         if (!filterGroup.groupIds.includes(candidate.groupId)) {
           filterGroup.groupIds.push(candidate.groupId);
         }
@@ -1841,7 +1922,7 @@
 
     function updateVisibleCandidates() {
       candidates = allCandidates.filter(
-        (candidate) => getFilterSetting(candidate.filterKey).visible
+        (candidate) => getFilterSetting(candidate.filterKey).visible && !isCandidateInactive(candidate)
       );
     }
 
@@ -1887,7 +1968,7 @@
     }
 
     function renderCandidateSummary() {
-      const visibleRemainingCount = allCandidates.filter(isCandidateGenreVisible).length;
+      const visibleRemainingCount = candidates.length;
       remainingCandidateCount.textContent = String(visibleRemainingCount);
       totalCandidateCount.textContent = String(getVisibleOverallUniqueCandidateCount());
     }
@@ -2403,9 +2484,14 @@
       candidateList.id = candidateListId;
       candidateList.className = "genre-candidate-list";
       candidateList.hidden = !expanded;
-      group.values.forEach((value) => {
+      group.candidates.forEach((candidate) => {
         const candidateItem = document.createElement("li");
-        candidateItem.textContent = value;
+        candidateItem.textContent = candidate.value;
+        if (isCandidateInactive(candidate)) {
+          candidateItem.className = "is-inactive";
+          candidateItem.setAttribute("aria-label", `${candidate.value}（選択済み・抽選対象外）`);
+          candidateItem.title = "選択済みのため抽選対象外です";
+        }
         candidateList.appendChild(candidateItem);
       });
 
@@ -2507,7 +2593,7 @@
       const locked = isFilterLocked() || genreEditor !== null;
       const hasSelectedItems = selectedItems.length > 0;
       const restorableCount = selectedItems.filter(
-        (candidate) => !candidateAlreadyExistsInGenre(candidate)
+        (candidate) => isCandidateRegistered(candidate) && isCandidateInactive(candidate)
       ).length;
       reviveAllButton.disabled = locked || restorableCount === 0;
       saveSelectedImageButton.disabled = !hasSelectedItems;
@@ -2515,7 +2601,7 @@
       shareSelectedImageButton.disabled = !hasSelectedItems;
       reviveAllButton.title = restorableCount === 0
         ? "すべての選択済み候補が復活中です"
-        : `未復活の${restorableCount}件をルーレット候補へ戻す`;
+        : `未復活の${restorableCount}件を抽選対象へ戻す`;
 
       if (selectedItems.length === 0) {
         const empty = document.createElement("div");
@@ -2539,7 +2625,9 @@
 
         values.forEach((candidate) => {
           const item = document.createElement("li");
-          const alreadyRevived = candidateAlreadyExistsInGenre(candidate);
+          const registered = isCandidateRegistered(candidate);
+          const alreadyRevived = isCandidateActive(candidate);
+          const canRevive = registered && isCandidateInactive(candidate);
 
           const row = document.createElement("div");
           row.className = alreadyRevived
@@ -2557,16 +2645,20 @@
           reviveButton.className = "revive-button";
           reviveButton.type = "button";
           reviveButton.textContent = "復活";
-          reviveButton.disabled = locked || alreadyRevived;
+          reviveButton.disabled = locked || !canRevive;
           reviveButton.setAttribute(
             "aria-label",
             alreadyRevived
               ? `${formatResult(candidate)}はすでにルーレット候補へ復活しています`
-              : `${formatResult(candidate)}を選択済み一覧に残したままルーレット候補へ戻す`
+              : !registered
+                ? `${formatResult(candidate)}は候補一覧に登録されていません`
+                : `${formatResult(candidate)}を選択済み一覧に残したまま抽選対象へ戻す`
           );
           reviveButton.title = alreadyRevived
             ? "すでに復活中です"
-            : "選択済みの記録を残したまま候補へ戻す";
+            : !registered
+              ? "候補一覧に登録されていないため復活できません"
+              : "グレーアウトを解除して抽選対象へ戻す";
           reviveButton.addEventListener("click", () => reviveSelectedItem(candidate));
 
           row.append(name, reviveButton);
@@ -2678,7 +2770,7 @@
         context.textBaseline = "middle";
         context.font = "700 31px sans-serif";
         context.fillText(
-          allCandidates.length === 0 ? "候補がありません" : "表示中の候補がありません",
+          allCandidates.length === 0 ? "候補がありません" : "抽選対象の候補がありません",
           0,
           0
         );
@@ -2929,33 +3021,14 @@
       spinAnimationFrameId = requestAnimationFrame(animate);
     }
 
-    function removeCandidateFromInput(candidate) {
-      const group = inputGroups.find((item) => item.id === candidate.groupId);
-      if (!group) {
-        return;
-      }
-
-      const values = normalizeItems(group.itemsText);
-      const removeIndex = values.indexOf(candidate.value);
-      if (removeIndex !== -1) {
-        values.splice(removeIndex, 1);
-      }
-      group.itemsText = values.join("\n");
-    }
-
     function decideResult() {
       if (currentResultIndex === null || !candidates[currentResultIndex]) {
         return;
       }
 
       const decided = candidates[currentResultIndex];
-      const allCandidateIndex = allCandidates.indexOf(decided);
-      if (allCandidateIndex !== -1) {
-        allCandidates.splice(allCandidateIndex, 1);
-      }
-
       const selectedRecord = addSelectedItem(decided);
-      removeCandidateFromInput(decided);
+      inactiveCandidateKeys.add(getSelectedItemKey(decided));
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -2970,32 +3043,6 @@
       );
     }
 
-    function findRevivalTargetGroup(candidate) {
-      const normalizedGenre = normalizeGenreName(candidate.genre);
-
-      const matchingGroup = inputGroups.find(
-        (group) => normalizeGenreName(group.genre) === normalizedGenre
-      );
-      if (matchingGroup) {
-        return matchingGroup;
-      }
-
-      const newGroup = createGroup(normalizedGenre, "");
-      inputGroups.push(newGroup);
-      return newGroup;
-    }
-
-    function candidateAlreadyExistsInGenre(candidate) {
-      const normalizedGenre = normalizeGenreName(candidate.genre);
-
-      return inputGroups.some((group) => {
-        if (normalizeGenreName(group.genre) !== normalizedGenre) {
-          return false;
-        }
-        return normalizeItems(group.itemsText).includes(candidate.value);
-      });
-    }
-
     function reviveSelectedItem(candidate) {
       if (isFilterLocked()) {
         return;
@@ -3005,15 +3052,18 @@
         return;
       }
 
-      const alreadyExists = candidateAlreadyExistsInGenre(candidate);
-      if (!alreadyExists) {
-        const targetGroup = findRevivalTargetGroup(candidate);
-        const values = normalizeItems(targetGroup.itemsText);
-        values.push(candidate.value);
-        targetGroup.itemsText = values.join("\n");
+      if (!isCandidateRegistered(candidate)) {
+        setMessage(`「${formatResult(candidate)}」は候補一覧に登録されていないため復活できません。`, "error");
+        return;
       }
 
-      allCandidates = buildCandidates();
+      const key = getSelectedItemKey(candidate);
+      if (!inactiveCandidateKeys.has(key)) {
+        setMessage(`「${formatResult(candidate)}」はすでに復活中です。`);
+        return;
+      }
+
+      inactiveCandidateKeys.delete(key);
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3021,12 +3071,7 @@
       renderState();
       drawWheel(0);
 
-      setMessage(
-        alreadyExists
-          ? `「${formatResult(candidate)}」はすでに復活中です。選択済み一覧には残しています。`
-          : `「${formatResult(candidate)}」を候補へ復活させました。選択済み一覧には記録を残しています。`,
-        "success"
-      );
+      setMessage(`「${formatResult(candidate)}」のグレーアウトを解除し、抽選対象へ戻しました。選択済み一覧には記録を残しています。`, "success");
     }
 
     function reviveAllSelectedItems() {
@@ -3037,15 +3082,12 @@
       let revivedCount = 0;
 
       selectedItems.forEach((candidate) => {
-        if (candidateAlreadyExistsInGenre(candidate)) {
+        if (!isCandidateRegistered(candidate)) {
           return;
         }
-
-        const targetGroup = findRevivalTargetGroup(candidate);
-        const values = normalizeItems(targetGroup.itemsText);
-        values.push(candidate.value);
-        targetGroup.itemsText = values.join("\n");
-        revivedCount += 1;
+        if (inactiveCandidateKeys.delete(getSelectedItemKey(candidate))) {
+          revivedCount += 1;
+        }
       });
 
       if (revivedCount === 0) {
@@ -3054,7 +3096,6 @@
         return;
       }
 
-      allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3062,7 +3103,7 @@
       renderState();
       drawWheel(0);
       setMessage(
-        `${revivedCount}件の選択済み候補を一括で復活させました。選択済み一覧には記録を残しています。`,
+        `${revivedCount}件のグレーアウトを解除し、抽選対象へ戻しました。選択済み一覧には記録を残しています。`,
         "success"
       );
     }
@@ -3142,6 +3183,7 @@
 
     function rebuildAfterGenreChange() {
       allCandidates = buildCandidates();
+      syncInactiveCandidateKeys();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3172,6 +3214,10 @@
 
       const targetFilterKey = getFilterKeyFromGenre(genre);
       const sourceFilterKey = draft.originalFilterKey;
+      const inactiveSourceCandidates = sourceFilterKey
+        ? allCandidates
+            .filter((candidate) => candidate.filterKey === sourceFilterKey && isCandidateInactive(candidate))
+        : [];
       const targetAlreadyExists = getFilterGroups().some(
         (group) => group.filterKey === targetFilterKey && group.filterKey !== sourceFilterKey
       );
@@ -3199,6 +3245,30 @@
             .filter((group) => !keysToReplace.has(getFilterKey(group))).length;
       remainingGroups.splice(insertionIndex, 0, createGroup(genre, mergedValues.join("\n")));
       inputGroups = remainingGroups;
+
+      if (sourceFilterKey && sourceFilterKey !== targetFilterKey) {
+        inactiveSourceCandidates.forEach((candidate) => {
+          inactiveCandidateKeys.delete(getSelectedItemKey(candidate));
+          if (mergedValues.includes(candidate.value)) {
+            inactiveCandidateKeys.add(getSelectedItemKey({ genre, value: candidate.value }));
+          }
+        });
+
+        const migratedSelectedItems = new Map();
+        selectedItems.forEach((candidate) => {
+          const migratedCandidate = candidate.filterKey === sourceFilterKey && mergedValues.includes(candidate.value)
+            ? { ...candidate, genre, filterKey: targetFilterKey }
+            : candidate;
+          const key = getSelectedItemKey(migratedCandidate);
+          const existing = migratedSelectedItems.get(key);
+          if (existing) {
+            existing.count += Math.max(1, Number(migratedCandidate.count) || 1);
+          } else {
+            migratedSelectedItems.set(key, { ...migratedCandidate });
+          }
+        });
+        selectedItems = [...migratedSelectedItems.values()];
+      }
 
       if (!targetAlreadyExists || targetFilterKey === sourceFilterKey) {
         filterSettings.set(targetFilterKey, {
@@ -3246,6 +3316,7 @@
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
       expandedGenreKeys.clear();
+      inactiveCandidateKeys.clear();
       genreEditor = null;
       ratioEnabled = false;
       allCandidates = buildCandidates();
@@ -3496,20 +3567,29 @@
 
       const exportCandidates = buildCandidates();
       const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "選択回数"]];
+      const exportedInactiveKeys = new Set();
 
       exportCandidates.forEach((candidate) => {
         const setting = getCandidateExportSetting(candidate);
+        const selectedRecord = findSelectedItem(candidate);
+        const inactive = isCandidateInactive(candidate);
         rows.push([
           candidate.genre,
           candidate.value,
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
-          "false",
-          ""
+          inactive ? "true" : "false",
+          inactive ? String(Math.max(1, Number(selectedRecord?.count) || 1)) : ""
         ]);
+        if (inactive) {
+          exportedInactiveKeys.add(getSelectedItemKey(candidate));
+        }
       });
 
       selectedItems.forEach((candidate) => {
+        if (exportedInactiveKeys.has(getSelectedItemKey(candidate))) {
+          return;
+        }
         const setting = getCandidateExportSetting(candidate);
         rows.push([
           candidate.genre,
@@ -3563,7 +3643,8 @@
         throw new Error("CSVの見出しに必須列「候補」がありません。");
       }
 
-      const activeByGenre = new Map();
+      const registeredByGenre = new Map();
+      const importedActiveKeys = new Set();
       const importedSelectedItems = [];
       const importedSelectedByKey = new Map();
       const importedSettings = new Map();
@@ -3618,6 +3699,19 @@
           savedVisible: setting.visible
         };
 
+        if (!registeredByGenre.has(filterKey)) {
+          registeredByGenre.set(filterKey, {
+            genre,
+            values: [],
+            uniqueValues: new Set()
+          });
+        }
+        const registeredGroup = registeredByGenre.get(filterKey);
+        if (!registeredGroup.uniqueValues.has(candidateValue)) {
+          registeredGroup.uniqueValues.add(candidateValue);
+          registeredGroup.values.push(candidateValue);
+        }
+
         if (isSelected) {
           const selectedKey = getSelectedItemKey(importedCandidate);
           const existingSelected = importedSelectedByKey.get(selectedKey);
@@ -3628,18 +3722,7 @@
             importedSelectedItems.push(importedCandidate);
           }
         } else {
-          if (!activeByGenre.has(filterKey)) {
-            activeByGenre.set(filterKey, {
-              genre,
-              values: [],
-              uniqueValues: new Set()
-            });
-          }
-          const activeGroup = activeByGenre.get(filterKey);
-          if (!activeGroup.uniqueValues.has(candidateValue)) {
-            activeGroup.uniqueValues.add(candidateValue);
-            activeGroup.values.push(candidateValue);
-          }
+          importedActiveKeys.add(getSelectedItemKey(importedCandidate));
         }
 
         importedCount += 1;
@@ -3649,7 +3732,7 @@
         throw new Error("CSVに候補データがありません。");
       }
 
-      inputGroups = [...activeByGenre.values()].map((group) =>
+      inputGroups = [...registeredByGenre.values()].map((group) =>
         createGroup(group.genre, group.values.join("\n"))
       );
       if (inputGroups.length === 0) {
@@ -3665,6 +3748,13 @@
         savedRatio: getFilterSetting(candidate.filterKey).ratio,
         savedVisible: getFilterSetting(candidate.filterKey).visible
       }));
+      inactiveCandidateKeys.clear();
+      selectedItems.forEach((candidate) => {
+        if (!importedActiveKeys.has(getSelectedItemKey(candidate))) {
+          inactiveCandidateKeys.add(getSelectedItemKey(candidate));
+        }
+      });
+      syncInactiveCandidateKeys();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3863,6 +3953,7 @@
 
     restoreAppState();
     allCandidates = buildCandidates();
+    syncInactiveCandidateKeys();
     syncFilterSettings();
     updateVisibleCandidates();
     renderSoundToggle();
