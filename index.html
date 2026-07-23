@@ -67,13 +67,20 @@
       gap: 18px;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     .header h1 {
       margin: 0;
       font-size: clamp(28px, 4vw, 42px);
       letter-spacing: 0.02em;
     }
 
-    .sound-toggle-button {
+    .sound-toggle-button,
+    .favorite-filter-button {
       flex: 0 0 auto;
       width: 48px;
       height: 48px;
@@ -97,7 +104,8 @@
       stroke-linejoin: round;
     }
 
-    .sound-toggle-button:not(:disabled):hover {
+    .sound-toggle-button:not(:disabled):hover,
+    .favorite-filter-button:not(:disabled):hover {
       transform: translateY(-2px);
       border-color: rgba(91, 91, 214, 0.52);
       background: #f4f3ff;
@@ -106,6 +114,18 @@
     .sound-toggle-button.is-muted {
       color: #8b92a3;
       background: #eceef3;
+    }
+
+    .favorite-filter-button {
+      color: #8b92a3;
+      font-size: 27px;
+      line-height: 1;
+    }
+
+    .favorite-filter-button.is-active {
+      color: #b77900;
+      border-color: rgba(212, 167, 44, 0.58);
+      background: #fff8df;
     }
 
     .version-note {
@@ -889,6 +909,35 @@
       overflow-wrap: anywhere;
     }
 
+    .genre-candidate-list li.is-inactive .candidate-name {
+      color: #a0a6b3;
+      opacity: 0.62;
+    }
+
+    .candidate-favorite-button {
+      flex: 0 0 auto;
+      width: 22px;
+      height: 22px;
+      margin: 1px 7px 0 0;
+      padding: 0;
+      border: 0;
+      color: #a0a6b3;
+      background: transparent;
+      font-size: 19px;
+      line-height: 1;
+      vertical-align: -2px;
+      transition: color 0.16s ease, transform 0.16s ease;
+    }
+
+    .candidate-favorite-button:not(:disabled):hover {
+      color: #b77900;
+      transform: scale(1.12);
+    }
+
+    .candidate-favorite-button.is-favorite {
+      color: #d4a72c;
+    }
+
     .genre-candidate-list[hidden] {
       display: none;
     }
@@ -1291,7 +1340,8 @@
         align-items: flex-start;
       }
 
-      .sound-toggle-button {
+      .sound-toggle-button,
+      .favorite-filter-button {
         width: 44px;
         height: 44px;
         border-radius: 12px;
@@ -1323,7 +1373,10 @@
     <header class="header">
       <div class="header-top">
         <h1>ルーレット</h1>
-        <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
+        <div class="header-actions">
+          <button id="favoriteFilterButton" class="favorite-filter-button" type="button" aria-pressed="false" aria-label="お気に入りフィルターをオンにする" title="お気に入りだけを抽選対象にする">☆</button>
+          <button id="soundToggleButton" class="sound-toggle-button" type="button" aria-pressed="true" aria-label="サウンドをオフにする" title="サウンドをオフにする"></button>
+        </div>
       </div>
     </header>
 
@@ -1561,6 +1614,7 @@
     const drawerImportButton = document.getElementById("drawerImportButton");
     const drawerExportButton = document.getElementById("drawerExportButton");
     const csvFileInput = document.getElementById("csvFileInput");
+    const favoriteFilterButton = document.getElementById("favoriteFilterButton");
     const soundToggleButton = document.getElementById("soundToggleButton");
 
     const spinSound = new Audio("roulette-spin.wav");
@@ -1579,10 +1633,13 @@
     let allCandidates = [];
     let candidates = [];
     let selectedItems = [];
+    const inactiveCandidateKeys = new Set();
+    const favoriteCandidateKeys = new Set();
     let currentResultIndex = null;
     let currentRotation = 0;
     let spinning = false;
     let ratioEnabled = false;
+    let favoriteFilterEnabled = false;
     let soundEnabled = true;
     let angularVelocity = 0;
     let spinAnimationFrameId = null;
@@ -1643,7 +1700,10 @@
           savedRatio: candidate.savedRatio,
           savedVisible: candidate.savedVisible
         })),
+        inactiveCandidateKeys: [...inactiveCandidateKeys],
+        favoriteCandidateKeys: [...favoriteCandidateKeys],
         ratioEnabled,
+        favoriteFilterEnabled,
         soundEnabled
       };
     }
@@ -1741,7 +1801,41 @@
             })
           : [];
 
+        inactiveCandidateKeys.clear();
+        const hasStoredInactiveState = Array.isArray(storedState.inactiveCandidateKeys);
+        if (hasStoredInactiveState) {
+          storedState.inactiveCandidateKeys.forEach((key) => {
+            if (typeof key === "string") {
+              inactiveCandidateKeys.add(key);
+            }
+          });
+        }
+
+        selectedItems.forEach((candidate) => {
+          const key = getSelectedItemKey(candidate);
+          const registered = candidateExistsInInputGroups(candidate);
+          const shouldRestoreAsInactive = hasStoredInactiveState
+            ? inactiveCandidateKeys.has(key)
+            : !registered;
+          if (shouldRestoreAsInactive) {
+            inactiveCandidateKeys.add(key);
+            if (!registered) {
+              appendCandidateToInputGroups(candidate);
+            }
+          }
+        });
+
+        favoriteCandidateKeys.clear();
+        if (Array.isArray(storedState.favoriteCandidateKeys)) {
+          storedState.favoriteCandidateKeys.forEach((key) => {
+            if (typeof key === "string") {
+              favoriteCandidateKeys.add(key);
+            }
+          });
+        }
+
         ratioEnabled = storedState.ratioEnabled === true;
+        favoriteFilterEnabled = storedState.favoriteFilterEnabled === true;
         soundEnabled = storedState.soundEnabled !== false;
         return true;
       } catch (error) {
@@ -1811,6 +1905,67 @@
       return nextCandidates;
     }
 
+    function candidateExistsInInputGroups(candidate) {
+      const candidateKey = getSelectedItemKey(candidate);
+      return inputGroups.some((group) => {
+        const genre = normalizeGenreName(group.genre);
+        return normalizeItems(group.itemsText).some((value) => (
+          getSelectedItemKey({ genre, value }) === candidateKey
+        ));
+      });
+    }
+
+    function appendCandidateToInputGroups(candidate) {
+      const normalizedGenre = normalizeGenreName(candidate.genre);
+      let targetGroup = inputGroups.find(
+        (group) => normalizeGenreName(group.genre) === normalizedGenre
+      );
+      if (!targetGroup) {
+        targetGroup = createGroup(normalizedGenre, "");
+        inputGroups.push(targetGroup);
+      }
+      const values = normalizeItems(targetGroup.itemsText);
+      if (!values.includes(candidate.value)) {
+        values.push(candidate.value);
+        targetGroup.itemsText = values.join("\n");
+      }
+    }
+
+    function isCandidateInactive(candidate) {
+      return inactiveCandidateKeys.has(getSelectedItemKey(candidate));
+    }
+
+    function isCandidateFavorite(candidate) {
+      return favoriteCandidateKeys.has(getSelectedItemKey(candidate));
+    }
+
+    function isCandidateRegistered(candidate) {
+      const key = getSelectedItemKey(candidate);
+      return allCandidates.some((item) => getSelectedItemKey(item) === key);
+    }
+
+    function isCandidateActive(candidate) {
+      return isCandidateRegistered(candidate) && !isCandidateInactive(candidate);
+    }
+
+    function syncInactiveCandidateKeys() {
+      const registeredKeys = new Set(allCandidates.map(getSelectedItemKey));
+      [...inactiveCandidateKeys].forEach((key) => {
+        if (!registeredKeys.has(key)) {
+          inactiveCandidateKeys.delete(key);
+        }
+      });
+    }
+
+    function syncFavoriteCandidateKeys() {
+      const registeredKeys = new Set(allCandidates.map(getSelectedItemKey));
+      [...favoriteCandidateKeys].forEach((key) => {
+        if (!registeredKeys.has(key)) {
+          favoriteCandidateKeys.delete(key);
+        }
+      });
+    }
+
     function getFilterGroups() {
       const filterGroups = [];
       const groupByKey = new Map();
@@ -1822,6 +1977,7 @@
             genre: candidate.genre,
             count: 0,
             values: [],
+            candidates: [],
             groupIds: []
           };
           groupByKey.set(candidate.filterKey, filterGroup);
@@ -1831,6 +1987,7 @@
         const filterGroup = groupByKey.get(candidate.filterKey);
         filterGroup.count += 1;
         filterGroup.values.push(candidate.value);
+        filterGroup.candidates.push(candidate);
         if (!filterGroup.groupIds.includes(candidate.groupId)) {
           filterGroup.groupIds.push(candidate.groupId);
         }
@@ -1841,7 +1998,11 @@
 
     function updateVisibleCandidates() {
       candidates = allCandidates.filter(
-        (candidate) => getFilterSetting(candidate.filterKey).visible
+        (candidate) => (
+          getFilterSetting(candidate.filterKey).visible
+          && !isCandidateInactive(candidate)
+          && (!favoriteFilterEnabled || isCandidateFavorite(candidate))
+        )
       );
     }
 
@@ -1873,12 +2034,18 @@
       const uniqueCandidates = new Set();
 
       allCandidates.forEach((candidate) => {
-        if (isCandidateGenreVisible(candidate)) {
+        if (
+          isCandidateGenreVisible(candidate)
+          && (!favoriteFilterEnabled || isCandidateFavorite(candidate))
+        ) {
           uniqueCandidates.add(getSelectedItemKey(candidate));
         }
       });
       selectedItems.forEach((candidate) => {
-        if (isCandidateGenreVisible(candidate)) {
+        if (
+          isCandidateGenreVisible(candidate)
+          && (!favoriteFilterEnabled || isCandidateFavorite(candidate))
+        ) {
           uniqueCandidates.add(getSelectedItemKey(candidate));
         }
       });
@@ -1887,7 +2054,7 @@
     }
 
     function renderCandidateSummary() {
-      const visibleRemainingCount = allCandidates.filter(isCandidateGenreVisible).length;
+      const visibleRemainingCount = candidates.length;
       remainingCandidateCount.textContent = String(visibleRemainingCount);
       totalCandidateCount.textContent = String(getVisibleOverallUniqueCandidateCount());
     }
@@ -2209,6 +2376,7 @@
 
       actionControls.classList.toggle("is-spin-state", !waitingForDecision);
       actionControls.classList.toggle("is-result-state", waitingForDecision);
+      renderFavoriteFilter();
     }
 
     function resetResult() {
@@ -2403,9 +2571,38 @@
       candidateList.id = candidateListId;
       candidateList.className = "genre-candidate-list";
       candidateList.hidden = !expanded;
-      group.values.forEach((value) => {
+      group.candidates.forEach((candidate) => {
         const candidateItem = document.createElement("li");
-        candidateItem.textContent = value;
+
+        const favoriteButton = document.createElement("button");
+        const favorite = isCandidateFavorite(candidate);
+        favoriteButton.className = favorite
+          ? "candidate-favorite-button is-favorite"
+          : "candidate-favorite-button";
+        favoriteButton.type = "button";
+        favoriteButton.dataset.action = "toggle-favorite";
+        favoriteButton.candidate = candidate;
+        favoriteButton.disabled = locked;
+        favoriteButton.textContent = favorite ? "★" : "☆";
+        favoriteButton.setAttribute("aria-pressed", String(favorite));
+        favoriteButton.setAttribute(
+          "aria-label",
+          favorite
+            ? `${candidate.value}をお気に入りから解除する`
+            : `${candidate.value}をお気に入りに登録する`
+        );
+        favoriteButton.title = favorite ? "お気に入りから解除" : "お気に入りに登録";
+
+        const candidateName = document.createElement("span");
+        candidateName.className = "candidate-name";
+        candidateName.textContent = candidate.value;
+
+        if (isCandidateInactive(candidate)) {
+          candidateItem.className = "is-inactive";
+          candidateItem.setAttribute("aria-label", `${candidate.value}（選択済み・抽選対象外）`);
+          candidateItem.title = "選択済みのため抽選対象外です";
+        }
+        candidateItem.append(favoriteButton, candidateName);
         candidateList.appendChild(candidateItem);
       });
 
@@ -2507,7 +2704,7 @@
       const locked = isFilterLocked() || genreEditor !== null;
       const hasSelectedItems = selectedItems.length > 0;
       const restorableCount = selectedItems.filter(
-        (candidate) => !candidateAlreadyExistsInGenre(candidate)
+        (candidate) => isCandidateRegistered(candidate) && isCandidateInactive(candidate)
       ).length;
       reviveAllButton.disabled = locked || restorableCount === 0;
       saveSelectedImageButton.disabled = !hasSelectedItems;
@@ -2515,7 +2712,7 @@
       shareSelectedImageButton.disabled = !hasSelectedItems;
       reviveAllButton.title = restorableCount === 0
         ? "すべての選択済み候補が復活中です"
-        : `未復活の${restorableCount}件をルーレット候補へ戻す`;
+        : `未復活の${restorableCount}件を抽選対象へ戻す`;
 
       if (selectedItems.length === 0) {
         const empty = document.createElement("div");
@@ -2539,7 +2736,9 @@
 
         values.forEach((candidate) => {
           const item = document.createElement("li");
-          const alreadyRevived = candidateAlreadyExistsInGenre(candidate);
+          const registered = isCandidateRegistered(candidate);
+          const alreadyRevived = isCandidateActive(candidate);
+          const canRevive = registered && isCandidateInactive(candidate);
 
           const row = document.createElement("div");
           row.className = alreadyRevived
@@ -2557,16 +2756,20 @@
           reviveButton.className = "revive-button";
           reviveButton.type = "button";
           reviveButton.textContent = "復活";
-          reviveButton.disabled = locked || alreadyRevived;
+          reviveButton.disabled = locked || !canRevive;
           reviveButton.setAttribute(
             "aria-label",
             alreadyRevived
               ? `${formatResult(candidate)}はすでにルーレット候補へ復活しています`
-              : `${formatResult(candidate)}を選択済み一覧に残したままルーレット候補へ戻す`
+              : !registered
+                ? `${formatResult(candidate)}は候補一覧に登録されていません`
+                : `${formatResult(candidate)}を選択済み一覧に残したまま抽選対象へ戻す`
           );
           reviveButton.title = alreadyRevived
             ? "すでに復活中です"
-            : "選択済みの記録を残したまま候補へ戻す";
+            : !registered
+              ? "候補一覧に登録されていないため復活できません"
+              : "グレーアウトを解除して抽選対象へ戻す";
           reviveButton.addEventListener("click", () => reviveSelectedItem(candidate));
 
           row.append(name, reviveButton);
@@ -2678,7 +2881,11 @@
         context.textBaseline = "middle";
         context.font = "700 31px sans-serif";
         context.fillText(
-          allCandidates.length === 0 ? "候補がありません" : "表示中の候補がありません",
+          allCandidates.length === 0
+            ? "候補がありません"
+            : favoriteFilterEnabled
+              ? "お気に入りの候補がありません"
+              : "抽選対象の候補がありません",
           0,
           0
         );
@@ -2758,6 +2965,21 @@
       soundToggleButton.title = label;
     }
 
+    function renderFavoriteFilter() {
+      favoriteFilterButton.textContent = favoriteFilterEnabled ? "★" : "☆";
+      favoriteFilterButton.classList.toggle("is-active", favoriteFilterEnabled);
+      favoriteFilterButton.disabled = isFilterLocked() || genreEditor !== null;
+      favoriteFilterButton.setAttribute("aria-pressed", String(favoriteFilterEnabled));
+
+      const label = favoriteFilterEnabled
+        ? "お気に入りフィルターをオフにする"
+        : "お気に入りフィルターをオンにする";
+      favoriteFilterButton.setAttribute("aria-label", label);
+      favoriteFilterButton.title = favoriteFilterEnabled
+        ? "すべての有効な候補を抽選対象に戻す"
+        : "お気に入りだけを抽選対象にする";
+    }
+
     function startSpinSound() {
       if (!soundEnabled) {
         return;
@@ -2814,6 +3036,49 @@
       if (spinning) {
         startSpinSound();
       }
+    }
+
+    function toggleFavoriteFilter() {
+      if (isFilterLocked() || genreEditor) {
+        return;
+      }
+
+      favoriteFilterEnabled = !favoriteFilterEnabled;
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderState();
+      drawWheel(0);
+      setMessage(
+        favoriteFilterEnabled
+          ? "お気に入りの候補だけを抽選対象にしました。"
+          : "お気に入りフィルターを解除しました。",
+        "success"
+      );
+    }
+
+    function toggleCandidateFavorite(candidate) {
+      if (isFilterLocked() || genreEditor || !isCandidateRegistered(candidate)) {
+        return;
+      }
+
+      const key = getSelectedItemKey(candidate);
+      const favorite = !favoriteCandidateKeys.has(key);
+      if (favorite) {
+        favoriteCandidateKeys.add(key);
+      } else {
+        favoriteCandidateKeys.delete(key);
+      }
+
+      updateVisibleCandidates();
+      currentRotation = 0;
+      resetResult();
+      renderState();
+      drawWheel(0);
+      setMessage(
+        `「${formatResult(candidate)}」をお気に入り${favorite ? "に登録しました" : "から解除しました"}。`,
+        "success"
+      );
     }
 
     function getRandomSpinImpulse(minImpulse, maxImpulse) {
@@ -2929,33 +3194,14 @@
       spinAnimationFrameId = requestAnimationFrame(animate);
     }
 
-    function removeCandidateFromInput(candidate) {
-      const group = inputGroups.find((item) => item.id === candidate.groupId);
-      if (!group) {
-        return;
-      }
-
-      const values = normalizeItems(group.itemsText);
-      const removeIndex = values.indexOf(candidate.value);
-      if (removeIndex !== -1) {
-        values.splice(removeIndex, 1);
-      }
-      group.itemsText = values.join("\n");
-    }
-
     function decideResult() {
       if (currentResultIndex === null || !candidates[currentResultIndex]) {
         return;
       }
 
       const decided = candidates[currentResultIndex];
-      const allCandidateIndex = allCandidates.indexOf(decided);
-      if (allCandidateIndex !== -1) {
-        allCandidates.splice(allCandidateIndex, 1);
-      }
-
       const selectedRecord = addSelectedItem(decided);
-      removeCandidateFromInput(decided);
+      inactiveCandidateKeys.add(getSelectedItemKey(decided));
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -2970,32 +3216,6 @@
       );
     }
 
-    function findRevivalTargetGroup(candidate) {
-      const normalizedGenre = normalizeGenreName(candidate.genre);
-
-      const matchingGroup = inputGroups.find(
-        (group) => normalizeGenreName(group.genre) === normalizedGenre
-      );
-      if (matchingGroup) {
-        return matchingGroup;
-      }
-
-      const newGroup = createGroup(normalizedGenre, "");
-      inputGroups.push(newGroup);
-      return newGroup;
-    }
-
-    function candidateAlreadyExistsInGenre(candidate) {
-      const normalizedGenre = normalizeGenreName(candidate.genre);
-
-      return inputGroups.some((group) => {
-        if (normalizeGenreName(group.genre) !== normalizedGenre) {
-          return false;
-        }
-        return normalizeItems(group.itemsText).includes(candidate.value);
-      });
-    }
-
     function reviveSelectedItem(candidate) {
       if (isFilterLocked()) {
         return;
@@ -3005,15 +3225,18 @@
         return;
       }
 
-      const alreadyExists = candidateAlreadyExistsInGenre(candidate);
-      if (!alreadyExists) {
-        const targetGroup = findRevivalTargetGroup(candidate);
-        const values = normalizeItems(targetGroup.itemsText);
-        values.push(candidate.value);
-        targetGroup.itemsText = values.join("\n");
+      if (!isCandidateRegistered(candidate)) {
+        setMessage(`「${formatResult(candidate)}」は候補一覧に登録されていないため復活できません。`, "error");
+        return;
       }
 
-      allCandidates = buildCandidates();
+      const key = getSelectedItemKey(candidate);
+      if (!inactiveCandidateKeys.has(key)) {
+        setMessage(`「${formatResult(candidate)}」はすでに復活中です。`);
+        return;
+      }
+
+      inactiveCandidateKeys.delete(key);
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3021,12 +3244,7 @@
       renderState();
       drawWheel(0);
 
-      setMessage(
-        alreadyExists
-          ? `「${formatResult(candidate)}」はすでに復活中です。選択済み一覧には残しています。`
-          : `「${formatResult(candidate)}」を候補へ復活させました。選択済み一覧には記録を残しています。`,
-        "success"
-      );
+      setMessage(`「${formatResult(candidate)}」のグレーアウトを解除し、抽選対象へ戻しました。選択済み一覧には記録を残しています。`, "success");
     }
 
     function reviveAllSelectedItems() {
@@ -3037,15 +3255,12 @@
       let revivedCount = 0;
 
       selectedItems.forEach((candidate) => {
-        if (candidateAlreadyExistsInGenre(candidate)) {
+        if (!isCandidateRegistered(candidate)) {
           return;
         }
-
-        const targetGroup = findRevivalTargetGroup(candidate);
-        const values = normalizeItems(targetGroup.itemsText);
-        values.push(candidate.value);
-        targetGroup.itemsText = values.join("\n");
-        revivedCount += 1;
+        if (inactiveCandidateKeys.delete(getSelectedItemKey(candidate))) {
+          revivedCount += 1;
+        }
       });
 
       if (revivedCount === 0) {
@@ -3054,7 +3269,6 @@
         return;
       }
 
-      allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3062,7 +3276,7 @@
       renderState();
       drawWheel(0);
       setMessage(
-        `${revivedCount}件の選択済み候補を一括で復活させました。選択済み一覧には記録を残しています。`,
+        `${revivedCount}件のグレーアウトを解除し、抽選対象へ戻しました。選択済み一覧には記録を残しています。`,
         "success"
       );
     }
@@ -3142,6 +3356,8 @@
 
     function rebuildAfterGenreChange() {
       allCandidates = buildCandidates();
+      syncInactiveCandidateKeys();
+      syncFavoriteCandidateKeys();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3172,6 +3388,14 @@
 
       const targetFilterKey = getFilterKeyFromGenre(genre);
       const sourceFilterKey = draft.originalFilterKey;
+      const inactiveSourceCandidates = sourceFilterKey
+        ? allCandidates
+            .filter((candidate) => candidate.filterKey === sourceFilterKey && isCandidateInactive(candidate))
+        : [];
+      const favoriteSourceCandidates = sourceFilterKey
+        ? allCandidates
+            .filter((candidate) => candidate.filterKey === sourceFilterKey && isCandidateFavorite(candidate))
+        : [];
       const targetAlreadyExists = getFilterGroups().some(
         (group) => group.filterKey === targetFilterKey && group.filterKey !== sourceFilterKey
       );
@@ -3199,6 +3423,37 @@
             .filter((group) => !keysToReplace.has(getFilterKey(group))).length;
       remainingGroups.splice(insertionIndex, 0, createGroup(genre, mergedValues.join("\n")));
       inputGroups = remainingGroups;
+
+      if (sourceFilterKey && sourceFilterKey !== targetFilterKey) {
+        inactiveSourceCandidates.forEach((candidate) => {
+          inactiveCandidateKeys.delete(getSelectedItemKey(candidate));
+          if (mergedValues.includes(candidate.value)) {
+            inactiveCandidateKeys.add(getSelectedItemKey({ genre, value: candidate.value }));
+          }
+        });
+
+        favoriteSourceCandidates.forEach((candidate) => {
+          favoriteCandidateKeys.delete(getSelectedItemKey(candidate));
+          if (mergedValues.includes(candidate.value)) {
+            favoriteCandidateKeys.add(getSelectedItemKey({ genre, value: candidate.value }));
+          }
+        });
+
+        const migratedSelectedItems = new Map();
+        selectedItems.forEach((candidate) => {
+          const migratedCandidate = candidate.filterKey === sourceFilterKey && mergedValues.includes(candidate.value)
+            ? { ...candidate, genre, filterKey: targetFilterKey }
+            : candidate;
+          const key = getSelectedItemKey(migratedCandidate);
+          const existing = migratedSelectedItems.get(key);
+          if (existing) {
+            existing.count += Math.max(1, Number(migratedCandidate.count) || 1);
+          } else {
+            migratedSelectedItems.set(key, { ...migratedCandidate });
+          }
+        });
+        selectedItems = [...migratedSelectedItems.values()];
+      }
 
       if (!targetAlreadyExists || targetFilterKey === sourceFilterKey) {
         filterSettings.set(targetFilterKey, {
@@ -3246,8 +3501,11 @@
       inputGroups = createDefaultGroups();
       filterSettings = new Map();
       expandedGenreKeys.clear();
+      inactiveCandidateKeys.clear();
+      favoriteCandidateKeys.clear();
       genreEditor = null;
       ratioEnabled = false;
+      favoriteFilterEnabled = false;
       allCandidates = buildCandidates();
       syncFilterSettings();
       updateVisibleCandidates();
@@ -3342,6 +3600,7 @@
       genre: ["ジャンル", "genre", "category"],
       ratio: ["ジャンル比率", "比率", "ratio", "genreratio", "genre_ratio"],
       visible: ["ジャンル表示", "表示状態", "表示", "visible", "visibility"],
+      favorite: ["お気に入り", "favorite", "favourite", "isfavorite", "is_favorite"],
       selected: ["選択済み", "選択済みかどうか", "selected", "isselected", "is_selected"],
       selectionCount: ["選択回数", "重複数", "回数", "selectedcount", "selectioncount", "selected_count", "selection_count"]
     };
@@ -3454,24 +3713,33 @@
       const normalized = raw.toLowerCase();
       const commonTrue = ["true", "1", "yes", "y", "on"];
       const commonFalse = ["false", "0", "no", "n", "off"];
-      const trueValues = type === "visible"
-        ? [...commonTrue, "表示", "表示中", "visible"]
-        : [...commonTrue, "選択済み", "決定済み", "selected"];
-      const falseValues = type === "visible"
-        ? [...commonFalse, "非表示", "hidden"]
-        : [...commonFalse, "未選択", "未決定", "候補"];
+      const valuesByType = {
+        visible: {
+          trueValues: [...commonTrue, "表示", "表示中", "visible"],
+          falseValues: [...commonFalse, "非表示", "hidden"],
+          fieldName: "表示状態"
+        },
+        favorite: {
+          trueValues: [...commonTrue, "お気に入り", "登録済み", "favorite", "favourite"],
+          falseValues: [...commonFalse, "未登録", "通常"],
+          fieldName: "お気に入り状態"
+        },
+        selected: {
+          trueValues: [...commonTrue, "選択済み", "決定済み", "selected"],
+          falseValues: [...commonFalse, "未選択", "未決定", "候補"],
+          fieldName: "選択済み状態"
+        }
+      };
+      const typeValues = valuesByType[type] || valuesByType.selected;
 
-      if (trueValues.includes(normalized)) {
+      if (typeValues.trueValues.includes(normalized)) {
         return true;
       }
-      if (falseValues.includes(normalized)) {
+      if (typeValues.falseValues.includes(normalized)) {
         return false;
       }
 
-      const fieldName = type === "visible"
-        ? "表示状態"
-        : "選択済み状態";
-      throw new Error(`${rowNumber}行目の${fieldName}を判定できません。`);
+      throw new Error(`${rowNumber}行目の${typeValues.fieldName}を判定できません。`);
     }
 
     function escapeCsvValue(value) {
@@ -3495,27 +3763,38 @@
       }
 
       const exportCandidates = buildCandidates();
-      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "選択済み", "選択回数"]];
+      const rows = [["ジャンル", "候補", "ジャンル比率", "ジャンル表示", "お気に入り", "選択済み", "選択回数"]];
+      const exportedInactiveKeys = new Set();
 
       exportCandidates.forEach((candidate) => {
         const setting = getCandidateExportSetting(candidate);
+        const selectedRecord = findSelectedItem(candidate);
+        const inactive = isCandidateInactive(candidate);
         rows.push([
           candidate.genre,
           candidate.value,
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
-          "false",
-          ""
+          isCandidateFavorite(candidate) ? "true" : "false",
+          inactive ? "true" : "false",
+          inactive ? String(Math.max(1, Number(selectedRecord?.count) || 1)) : ""
         ]);
+        if (inactive) {
+          exportedInactiveKeys.add(getSelectedItemKey(candidate));
+        }
       });
 
       selectedItems.forEach((candidate) => {
+        if (exportedInactiveKeys.has(getSelectedItemKey(candidate))) {
+          return;
+        }
         const setting = getCandidateExportSetting(candidate);
         rows.push([
           candidate.genre,
           candidate.value,
           formatRatio(setting.ratio),
           setting.visible ? "true" : "false",
+          isCandidateFavorite(candidate) ? "true" : "false",
           "true",
           String(Math.max(1, Number(candidate.count) || 1))
         ]);
@@ -3555,6 +3834,7 @@
         genre: findCsvColumn(headers, CSV_COLUMN_ALIASES.genre),
         ratio: findCsvColumn(headers, CSV_COLUMN_ALIASES.ratio),
         visible: findCsvColumn(headers, CSV_COLUMN_ALIASES.visible),
+        favorite: findCsvColumn(headers, CSV_COLUMN_ALIASES.favorite),
         selected: findCsvColumn(headers, CSV_COLUMN_ALIASES.selected),
         selectionCount: findCsvColumn(headers, CSV_COLUMN_ALIASES.selectionCount)
       };
@@ -3563,7 +3843,9 @@
         throw new Error("CSVの見出しに必須列「候補」がありません。");
       }
 
-      const activeByGenre = new Map();
+      const registeredByGenre = new Map();
+      const importedActiveKeys = new Set();
+      const importedFavoriteKeys = new Set();
       const importedSelectedItems = [];
       const importedSelectedByKey = new Map();
       const importedSettings = new Map();
@@ -3585,6 +3867,7 @@
         const filterKey = getFilterKeyFromGenre(genre);
         const ratioCell = columns.ratio === -1 ? "" : row[columns.ratio];
         const visibleCell = columns.visible === -1 ? "" : row[columns.visible];
+        const favoriteCell = columns.favorite === -1 ? "" : row[columns.favorite];
         const selectedCell = columns.selected === -1 ? "" : row[columns.selected];
         const selectionCountCell = columns.selectionCount === -1 ? "" : row[columns.selectionCount];
 
@@ -3617,6 +3900,25 @@
           savedRatio: setting.ratio,
           savedVisible: setting.visible
         };
+        const isFavorite = parseCsvBoolean(
+          favoriteCell,
+          false,
+          "favorite",
+          rowNumber
+        );
+
+        if (!registeredByGenre.has(filterKey)) {
+          registeredByGenre.set(filterKey, {
+            genre,
+            values: [],
+            uniqueValues: new Set()
+          });
+        }
+        const registeredGroup = registeredByGenre.get(filterKey);
+        if (!registeredGroup.uniqueValues.has(candidateValue)) {
+          registeredGroup.uniqueValues.add(candidateValue);
+          registeredGroup.values.push(candidateValue);
+        }
 
         if (isSelected) {
           const selectedKey = getSelectedItemKey(importedCandidate);
@@ -3628,18 +3930,10 @@
             importedSelectedItems.push(importedCandidate);
           }
         } else {
-          if (!activeByGenre.has(filterKey)) {
-            activeByGenre.set(filterKey, {
-              genre,
-              values: [],
-              uniqueValues: new Set()
-            });
-          }
-          const activeGroup = activeByGenre.get(filterKey);
-          if (!activeGroup.uniqueValues.has(candidateValue)) {
-            activeGroup.uniqueValues.add(candidateValue);
-            activeGroup.values.push(candidateValue);
-          }
+          importedActiveKeys.add(getSelectedItemKey(importedCandidate));
+        }
+        if (isFavorite) {
+          importedFavoriteKeys.add(getSelectedItemKey(importedCandidate));
         }
 
         importedCount += 1;
@@ -3649,7 +3943,7 @@
         throw new Error("CSVに候補データがありません。");
       }
 
-      inputGroups = [...activeByGenre.values()].map((group) =>
+      inputGroups = [...registeredByGenre.values()].map((group) =>
         createGroup(group.genre, group.values.join("\n"))
       );
       if (inputGroups.length === 0) {
@@ -3665,6 +3959,16 @@
         savedRatio: getFilterSetting(candidate.filterKey).ratio,
         savedVisible: getFilterSetting(candidate.filterKey).visible
       }));
+      inactiveCandidateKeys.clear();
+      selectedItems.forEach((candidate) => {
+        if (!importedActiveKeys.has(getSelectedItemKey(candidate))) {
+          inactiveCandidateKeys.add(getSelectedItemKey(candidate));
+        }
+      });
+      favoriteCandidateKeys.clear();
+      importedFavoriteKeys.forEach((key) => favoriteCandidateKeys.add(key));
+      syncInactiveCandidateKeys();
+      syncFavoriteCandidateKeys();
       syncFilterSettings();
       updateVisibleCandidates();
       currentRotation = 0;
@@ -3731,6 +4035,10 @@
         if (action === "editor-toggle-visibility" && genreEditor) {
           genreEditor.visible = !genreEditor.visible;
           renderGenres();
+          return;
+        }
+        if (action === "toggle-favorite") {
+          toggleCandidateFavorite(actionButton.candidate);
           return;
         }
 
@@ -3851,6 +4159,7 @@
       }
     });
     soundToggleButton.addEventListener("click", toggleSound);
+    favoriteFilterButton.addEventListener("click", toggleFavoriteFilter);
     saveSelectedImageButton.addEventListener("click", saveSelectedItemsImage);
     copySelectedImageButton.addEventListener("click", copySelectedItemsImage);
     shareSelectedImageButton.addEventListener("click", shareSelectedItemsImage);
@@ -3863,9 +4172,12 @@
 
     restoreAppState();
     allCandidates = buildCandidates();
+    syncInactiveCandidateKeys();
+    syncFavoriteCandidateKeys();
     syncFilterSettings();
     updateVisibleCandidates();
     renderSoundToggle();
+    renderFavoriteFilter();
     renderState();
     drawWheel();
   </script>
